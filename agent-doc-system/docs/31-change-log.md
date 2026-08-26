@@ -2,6 +2,12 @@
 
 Track meaningful project-level changes, not every edit.
 
+### 2026-08-26 — P5.01: Dashboard UI
+- **What changed:** Added `src/app/page.tsx` (client dashboard), `src/components/HoneypotList.tsx`, `src/components/ThreatFeed.tsx`, and `src/lib/types.ts` (shared `Honeypot`/`ThreatReport` interfaces + `severityRank`). The page polls `/api/honeypots` and `/api/reports?limit=50` every 15s and renders stat cards, a honeypot table (status pills, empty + skeleton states), and a severity-sorted threat feed (empty + skeleton states), with a page-level error banner. Styling is a Tailwind v4 dark "console" theme. **shadcn/ui was intentionally not adopted** — the project keeps a minimal dependency surface; documented in docs/09.
+- **Why:** Task P5.01 — main UI consuming the P2.02 APIs; closes the loop for the MVP definition of done.
+- **Impact:** 4 new component tests (HoneypotList/ThreatFeed render + empty states via `react-dom/server`) green; full suite 22 passed / 2 skipped, lint + build clean. Added dev dep `@vitejs/plugin-react` (JSX transform for `.tsx` tests).
+- **Migration/action required:** None. Run `npm run dev` and deploy a honeypot + simulate an attack to see live data.
+
 ### 2026-08-26 — P4.02: Deployment Agent
 - **What changed:** Added `src/agents/deployAgent.ts` with `deployAgent({type?, network?, rpcUrl?, approved?, deployImpl?, model?})`. Resolves a honeypot template from `TEMPLATE_CATALOG` (currently `SimpleHoneypot`; optionally chosen by the LLM) and deploys via the P1.02 `deployContract` service. **Permission boundary:** any non-`local` target is rejected with `DeploymentRejectedError` unless `MAINNET_DEPLOY_APPROVED=true` or `approved:true` — enforcing plan §7 / §17 (no unapproved mainnet/testnet deploys). Tool + model are injectable.
 - **Why:** Task P4.02 — agent that decides and deploys honeypots with a hard approval gate; unblocks P6.01 autonomous deploy + P5.01.

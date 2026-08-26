@@ -237,14 +237,15 @@ graph LR
 **Docs:** `08-agent-architecture.md`
 
 ### Phase 5
-### P5.01 — Dashboard UI
+### [x] P5.01 — Dashboard UI
 **Type:** CREATE
 **Depends on:** P2.02
-**Files:** `app/page.tsx`, `components/HoneypotList.tsx`, `components/ThreatFeed.tsx`
+**Files:** `src/app/page.tsx`, `src/components/HoneypotList.tsx`, `src/components/ThreatFeed.tsx`, `src/lib/types.ts`
 **Purpose:** Main user interface.
-**Implementation:** Responsive dashboard using shadcn/ui components fetching from internal APIs.
+**Implementation:** Client dashboard (`src/app/page.tsx`) polls `/api/honeypots` + `/api/reports?limit=50` every 15s; renders `StatCard`s, `HoneypotList` (table w/ status pills, empty + skeleton states), and `ThreatFeed` (severity-sorted items, empty + skeleton). Styling is Tailwind v4 dark "console" theme; **shadcn/ui intentionally not adopted** (dependency-minimal MVP) — noted in docs/09.
 **Acceptance:** UI renders active honeypots and recent reports.
-**Verify:** Visual validation, component tests.
+**Verify:** `npm test` component tests (HoneypotList/ThreatFeed render data + empty states via `renderToStaticMarkup`); build marks `/` as a route. Visual check via `npm run dev`.
+**Result:** 4 component tests green; full suite 22 passed / 2 skipped, lint ✓ build ✓. Added dev dep `@vitejs/plugin-react` for JSX transform in tests.
 **Docs:** `09-ui-ux-design-system.md`
 
 ### Phase 6
@@ -442,8 +443,8 @@ model ThreatReport {
 
 ## 23. Immediate Next Actions
 
-1. P5.01 — Dashboard UI
-2. P6.01 — On-chain Listener & Orchestrator
+1. P6.01 — On-chain Listener & Orchestrator
+2. (MVP integration / E2E)
 
 ---
 
@@ -459,6 +460,7 @@ model ThreatReport {
 - P3.01 — AI provider abstraction (`src/lib/ai/provider.ts`) over LangChain; OpenAI default, Gemini alternative.
 - P4.01 — Analysis Agent (`src/agents/analysisAgent.ts` + `src/agents/tools/web3Tools.ts`); structured `ThreatReport` via mockable tool + model.
 - P4.02 — Deployment Agent (`src/agents/deployAgent.ts`); template selection + `MAINNET_DEPLOY_APPROVED` permission gate; reject unapproved remote deploys.
+- P5.01 — Dashboard UI (`src/app/page.tsx`, `src/components/{HoneypotList,ThreatFeed}.tsx`); polls APIs, Tailwind dark theme; shadcn skipped.
 
 ### Current
 - (none)
@@ -467,11 +469,11 @@ model ThreatReport {
 - (None)
 
 ### Tests
-- passed: `npm test` (18 passed / 2 skipped live-node), `npx hardhat test` 5/5, `npm run build`, `npm run lint`
+- passed: `npm test` (22 passed / 2 skipped live-node), `npx hardhat test` 5/5, `npm run build`, `npm run lint`
 - failed: (None)
 
 ### Documentation Updated
-- docs/05 (P1.01,P2.01) · docs/06 (P2.02) · docs/07 + docs/21-env (P3.01) · docs/08-agent-architecture.md (P4.01, P4.02) · docs/04, 12, 14 · DEC-001..006 · changelog P0.01–P4.02
+- docs/05 (P1.01,P2.01) · docs/06 (P2.02) · docs/07 + docs/21-env (P3.01) · docs/08-agent-architecture.md (P4.01, P4.02) · docs/09-ui-ux (P5.01) · docs/04, 12, 14 · DEC-001..006 · changelog P0.01–P5.01
 
 ### Blockers
 - None.
@@ -487,4 +489,4 @@ model ThreatReport {
 - Dev infra after reboot: `podman start honychain-db`, `npm run chain`.
 
 ### Next Recommended Task
-- P5.01 — Dashboard UI (`app/page.tsx`, `components/HoneypotList.tsx`, `components/ThreatFeed.tsx`)
+- P6.01 — On-chain Listener & Orchestrator (`src/services/listener.ts`, `src/services/orchestrator.ts`)
