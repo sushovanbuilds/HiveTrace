@@ -2,6 +2,24 @@
 
 Track meaningful project-level changes, not every edit.
 
+### 2026-08-26 — P3.01: AI provider abstraction
+- **What changed:** Added `src/lib/ai/provider.ts` with `createChatModel()` (LangChain chat model; OpenAI `gpt-4o` default per D1, Gemini `gemini-1.5-pro` alternative per §13, selected via `LLM_PROVIDER`) and `generateText()` (system+prompt → extracted string, tolerant of array-shaped output). Added direct deps `@langchain/core@1.2.9`, `@langchain/openai@1.5.10`, `@langchain/google-genai@2.3.0`. `.env.example` documents `LLM_PROVIDER`/`OPENAI_*`/`GOOGLE_*`/`GEMINI_*`.
+- **Why:** Task P3.01 — isolate LLM calls behind a swappable provider (unblocks P4.01/P4.02 agents). Plan §13 specifies LangChain wrapping; D1 picks OpenAI default.
+- **Impact:** 3 new unit tests (mock completion, array output, missing-key errors) green; full suite 10 passed / 2 skipped (live-node), lint + build clean.
+- **Migration/action required:** Set `OPENAI_API_KEY` (or `GOOGLE_API_KEY`) in any environment that runs agents. Provider model is injected for tests, so no key is needed in CI unit runs.
+
+### 2026-08-26 — P2.02: Internal APIs (honeypots + reports)
+- **What changed:** Added route handlers `src/app/api/honeypots/route.ts` (GET list + POST create) and `src/app/api/reports/route.ts` (GET list), plus shared helpers `src/lib/api/errors.ts` (standard `{error}` shape w/ `requestId`) and `src/lib/api/rateLimit.ts` (in-memory fixed-window limiter, 20/60s on POST). Inputs validated at the boundary with Zod. POST `/api/honeypots` requires `authorization: Bearer <ADMIN_API_KEY>` (fail-closed 401 if key unset) and returns 409 on duplicate address. `.env.example` documents `ADMIN_API_KEY`.
+- **Why:** Task P2.02 — endpoints for UI/agents to consume DB data (unblocks P5.01 Dashboard).
+- **Impact:** Routes registered as dynamic `ƒ` in build; 3 new integration tests (list filter, auth+create+dup, reports limit validation) green against live DB; full suite 7 passed / 2 skipped (live-node), lint + build clean.
+- **Migration/action required:** `zod` promoted from transitive (Hardhat toolbox) to a **direct** dependency (`^3.25.76`) — justified per docs/22 (standard-lib can't validate; Zod is the plan §12-specified validator; maintained, permissively licensed, zero extra runtime cost). Set `ADMIN_API_KEY` in any environment that should allow honeypot creation.
+
+### 2026-08-26 — P2.01: Domain database schema (Honeypot / Event / ThreatReport)
+- **What changed:** Added `Honeypot`, `Event`, `ThreatReport` models to `prisma/schema.prisma` per IMPLEMENTATION_PLAN.md §11. Uniques on `Honeypot.address` and `Event.txHash` (one canonical Event per tx); strictly 1:1 `Event ↔ ThreatReport`; helper indexes on `Honeypot.network`, `Event.createdAt`, `ThreatReport.severity`. Status/severity/type stay plain strings with documented value domains (enum upgrade deferred). Synced via `npx prisma db push` against the local DB.
+- **Why:** Task P2.01 — data structure for honeypots, captured events, and AI reports; unblocks P2.02 APIs and P4.01 Analysis Agent.
+- **Impact:** Round-trip verified (create Honeypot→Event→ThreatReport, nested read, FK-safe cleanup); suite 4 passed/2 skipped (live-node tests need `hardhat node`), lint + build green.
+- **Migration/action required:** None for fresh clones (`db push` or postinstall covers it); note default FK restrict means Event rows must be deleted before their Honeypot.
+
 ### 2026-08-26 — P1.02: Web3 deployment service
 - **What changed:** Added `src/lib/web3/deploy.ts`: `deployContract(name, {rpcUrl?, privateKey?, constructorArgs?, artifactsDir?}) → {address, txHash, deployer}` using pure ethers v6 over compiled Hardhat artifacts. Guard: non-local RPC requires explicit `DEPLOYER_PRIVATE_KEY`; localhost defaults to well-known dev account. Scripts: `npm run chain`. `.env.example` documents RPC/key/artifact vars.
 - **Why:** Task P1.02 — programmatic deployment interface for agents/API (P4.02, P2.x consumers).

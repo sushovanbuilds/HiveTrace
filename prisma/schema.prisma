@@ -13,10 +13,49 @@ datasource db {
 }
 
 // Generic key/value store used to verify DB connectivity (P0.02).
-// Domain models (Honeypot, Event, ThreatReport) arrive in P2.01.
 model Config {
   id        String   @id @default(cuid())
   key       String   @unique
   value     Json
   updatedAt DateTime @updatedAt
+}
+
+// A deployed honeypot contract (P2.01, IMPLEMENTATION_PLAN.md §11).
+model Honeypot {
+  id        String   @id @default(cuid())
+  address   String   @unique
+  network   String // e.g. 'local', 'sepolia'
+  type      String // e.g. 'ERC20', 'Reentrancy'
+  status    String // 'ACTIVE', 'COMPROMISED', 'RETIRED'
+  createdAt DateTime @default(now())
+  events    Event[]
+
+  @@index([network])
+}
+
+// An on-chain interaction captured for a honeypot (P2.01).
+// txHash is globally unique: one canonical Event row per transaction.
+model Event {
+  id         String        @id @default(cuid())
+  txHash     String        @unique
+  honeypotId String
+  honeypot   Honeypot      @relation(fields: [honeypotId], references: [id])
+  rawData    Json
+  createdAt  DateTime      @default(now())
+  report     ThreatReport?
+
+  @@index([createdAt])
+}
+
+// AI-generated analysis of an Event (P2.01); strictly 1:1 with Event.
+model ThreatReport {
+  id        String   @id @default(cuid())
+  eventId   String   @unique
+  event     Event    @relation(fields: [eventId], references: [id])
+  summary   String
+  severity  String // 'LOW', 'MEDIUM', 'HIGH', 'CRITICAL'
+  vector    String // e.g. 'Reentrancy', 'Flashloan'
+  createdAt DateTime @default(now())
+
+  @@index([severity])
 }

@@ -6,10 +6,13 @@
 ## Models
 | Role | Provider | Model | Reason | Fallback |
 |---|---|---|---|---|
-| Primary | TBD | TBD | TBD | TBD |
+| Primary (default) | OpenAI | `gpt-4o` (env `OPENAI_MODEL`) | D1 recommended default for tooling stability | Gemini |
+| Alternative | Google Gemini | `gemini-1.5-pro` (env `GEMINI_MODEL`) | Plan §13 deep-reasoning default; swappable | OpenAI |
+
+Provider is selected at runtime via `LLM_PROVIDER` (`openai` | `gemini`); defaults to OpenAI (D1). Keys read from `OPENAI_API_KEY` / `GOOGLE_API_KEY`. Abstraction lives in `src/lib/ai/provider.ts` over LangChain `@langchain/core` + `@langchain/openai` + `@langchain/google-genai`; any chat model can be injected for tests.
 
 ## Model Selection
-Selection should consider capability, latency, reliability, privacy, context length, and cost.
+Selection should consider capability, latency, reliability, privacy, context length, and cost. Overridable per-call via `createChatModel({ model })`. Default `temperature=0`, `maxTokens=1024` (plan §13).
 
 ## Prompt Architecture
 - System instructions: stable project policy.

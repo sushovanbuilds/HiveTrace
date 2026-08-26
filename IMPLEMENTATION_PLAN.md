@@ -169,7 +169,7 @@ graph LR
 **Docs:** None
 
 ### Phase 2
-### P2.01 — Define Database Schema
+### [x] P2.01 — Define Database Schema
 **Type:** MODIFY
 **Depends on:** P0.02
 **Files:** `prisma/schema.prisma`
@@ -177,7 +177,19 @@ graph LR
 **Implementation:** Models: `Honeypot` (address, type, network, status), `Event` (txHash, honeypotId, rawData), `ThreatReport` (eventId, analysis, severity).
 **Acceptance:** Schema validation passes.
 **Verify:** `npx prisma generate`
+**Result:** Added Honeypot/Event/ThreatReport per §11 (+ Config retained). Uniques on address/txHash, 1:1 Event↔ThreatReport, helper indexes on network/createdAt/severity; value domains documented as string comments (enum upgrade deferred). `prisma validate` ✓, `prisma generate` ✓, `prisma db push` ✓ vs local DB; round-trip create/read/cleanup verified. Suite 4 passed / 2 skipped (live-node), lint ✓ build ✓.
 **Docs:** `05-database-design.md`
+
+### [x] P2.02 — Create internal APIs
+**Type:** CREATE
+**Depends on:** P2.01
+**Files:** `src/app/api/honeypots/route.ts`, `src/app/api/reports/route.ts`, `src/lib/api/errors.ts`, `src/lib/api/rateLimit.ts`
+**Purpose:** Next.js endpoints for UI/agents to consume DB data.
+**Implementation:** GET/POST `/api/honeypots` (POST admin-gated via `ADMIN_API_KEY`, Zod-validated body `{address,type,network,status?}`, 409 on dup address, in-memory rate limit); GET `/api/reports?limit&severity`. Shared error shape + fixed-window limiter helpers. `zod` promoted to a direct dependency (was transitive via Hardhat).
+**Acceptance:** Endpoints return valid JSON; boundary validated.
+**Verify:** `npm test` (3 new integration tests vs live DB: list filter, auth+create+dup, reports limit validation).
+**Result:** Routes registered as dynamic `ƒ`; 3 API integration tests green; full suite 7 passed / 2 skipped (live-node), lint ✓ build ✓.
+**Docs:** `06-api-design.md`
 
 ### P2.02 — Create internal APIs
 **Type:** CREATE
@@ -190,15 +202,16 @@ graph LR
 **Docs:** `06-api-design.md`
 
 ### Phase 3
-### P3.01 — AI Provider Setup
+### [x] P3.01 — AI Provider Setup
 **Type:** CREATE
 **Depends on:** P0.01
 **Files:** `src/lib/ai/provider.ts`
-**Purpose:** Isolate LLM API calls.
-**Implementation:** Initialize LangChain chat model (e.g., ChatOpenAI or ChatGoogleGenerativeAI) based on env vars.
+**Purpose:** Isolate LLM API calls behind a swappable provider abstraction.
+**Implementation:** `createChatModel({provider?, model?, temperature?, maxTokens?})` returns a LangChain chat model (OpenAI `gpt-4o` default per D1, Gemini `gemini-1.5-pro` alternative per §13), selected via `LLM_PROVIDER` env; `generateText({prompt, system?, model?})` invokes it and returns extracted text. Added `@langchain/core`, `@langchain/openai`, `@langchain/google-genai`.
 **Acceptance:** Function can complete a simple prompt.
-**Verify:** Unit test with mock response.
-**Docs:** `07-ai-architecture.md`
+**Verify:** `npm test` unit tests — mock model returns content; array-shaped output extracted; missing-key errors are clear.
+**Result:** Provider abstraction over LangChain with model injection for tests; 3 unit tests green; full suite 10 passed / 2 skipped, lint ✓ build ✓.
+**Docs:** `07-ai-architecture.md`, `21-environment-configuration.md`
 
 ### Phase 4
 ### P4.01 — Analysis Agent Implementation
@@ -427,9 +440,8 @@ model ThreatReport {
 
 ## 23. Immediate Next Actions
 
-1. P2.01 — Define Database Schema
-2. P2.02 — Create internal APIs
-3. P3.01 — AI Provider Setup
+1. P4.01 — Analysis Agent Implementation
+2. P4.02 — Deployment Agent Implementation
 
 ---
 
@@ -440,6 +452,9 @@ model ThreatReport {
 - P1.01 — Hardhat 3.14 + templates (DEC-005/006).
 - **Phase 1 complete.**
 - P1.02 — Web3 deployment service (`src/lib/web3/deploy.ts`, ethers v6, local-key guard).
+- P2.01 — Domain schema: Honeypot/Event/ThreatReport in `prisma/schema.prisma`; pushed to local DB.
+- P2.02 — Internal APIs: `src/app/api/{honeypots,reports}/route.ts` + `src/lib/api/{errors,rateLimit}.ts`; `zod` promoted to direct dep.
+- P3.01 — AI provider abstraction (`src/lib/ai/provider.ts`) over LangChain; OpenAI default, Gemini alternative.
 
 ### Current
 - (none)
@@ -448,21 +463,24 @@ model ThreatReport {
 - (None)
 
 ### Tests
-- passed: `npm test` 6/6 (smoke · DB integration · deploy×2 live-node · guards×2), `npx hardhat test` 5/5, `npm run build`, `npm run lint`
+- passed: `npm test` (10 passed / 2 skipped live-node), `npx hardhat test` 5/5, `npm run build`, `npm run lint`
 - failed: (None)
 
 ### Documentation Updated
-- docs/04-system-architecture.md (P1.01) · docs/05, 12, 14 · DEC-001..006 · changelog P0.01–P1.01
+- docs/05-database-design.md (P1.01, P2.01) · docs/06-api-design.md (P2.02) · docs/07-ai-architecture.md + docs/21-env (P3.01) · docs/04, 12, 14 · DEC-001..006 · changelog P0.01–P3.01
 
 ### Blockers
-- None. Still no git history (DEC-002) — commit recommended.
+- None.
 
 ### Notes for Next Agent
 - ESM project (`"type": "module"`); Next 16 docs under `node_modules/next/dist/docs/`; API paths `src/app/api/**`.
 - Prisma 7 via `import { db } from "@/lib/db"`; never instantiate elsewhere; generated client gitignored, regenerates on install.
+- Domain models live (`db.honeypot`, `db.event`, `db.threatReport`); deletion order ThreatReport → Event → Honeypot (FK restrict); `Event.txHash` globally unique.
+- API layers: `src/lib/api/{errors,rateLimit}.ts`; POST `/api/honeypots` is admin-gated via `ADMIN_API_KEY` (Bearer) and rate-limited; `zod` is now a direct dependency.
+- AI: `src/lib/ai/provider.ts` (`generateText`, `createChatModel`) over LangChain; inject a mock model in tests. Default OpenAI (D1), swappable to Gemini via `LLM_PROVIDER`.
 - Web3: use `deployContract()` from `@/lib/web3/deploy`; never import the Hardhat HRE inside `src/`; artifacts must exist (`npx hardhat compile`).
 - Contract tests: `npx hardhat test`; app tests: `npm test` (integration tests skip when DB/chain down).
 - Dev infra after reboot: `podman start honychain-db`, `npm run chain`.
 
 ### Next Recommended Task
-- P2.01 — Define Database Schema (Honeypot/Event/ThreatReport models per §11)
+- P4.01 — Analysis Agent Implementation (`src/agents/analysisAgent.ts`, `src/agents/tools/web3Tools.ts`)
