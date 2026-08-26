@@ -225,14 +225,15 @@ graph LR
 **Result:** 3 agent unit tests green; full suite 13 passed / 2 skipped (live-node), lint ✓ build ✓. No DB writes here — persistence is deferred to the orchestrator (P6.01).
 **Docs:** `08-agent-architecture.md`
 
-### P4.02 — Deployment Agent Implementation
+### [x] P4.02 — Deployment Agent Implementation
 **Type:** CREATE
 **Depends on:** P3.01, P1.02
 **Files:** `src/agents/deployAgent.ts`
 **Purpose:** LLM agent to decide and deploy honeypots.
-**Implementation:** Agent with tools to deploy contracts. Must include permission boundary logic (reject mainnet without flag).
+**Implementation:** `deployAgent({type?, network?, rpcUrl?, approved?, deployImpl?, model?})` resolves a template (catalog `SimpleHoneypot`, optionally chosen by the LLM), then calls `deployContract` (P1.02). **Permission boundary:** any non-`local` target is rejected with `DeploymentRejectedError` unless `MAINNET_DEPLOY_APPROVED=true` or `approved:true`. Tool/model injectable for tests.
 **Acceptance:** Agent selects appropriate template and triggers deploy tool.
-**Verify:** Unit test ensuring permission flags are respected.
+**Verify:** `npm test` unit tests — mainnet/testnet without approval rejected; local + approved-remote deploy; LLM template choice honored.
+**Result:** 5 deploy-agent unit tests green; full suite 18 passed / 2 skipped (live-node), lint ✓ build ✓.
 **Docs:** `08-agent-architecture.md`
 
 ### Phase 5
@@ -441,8 +442,8 @@ model ThreatReport {
 
 ## 23. Immediate Next Actions
 
-1. P4.02 — Deployment Agent Implementation
-2. P5.01 — Dashboard UI
+1. P5.01 — Dashboard UI
+2. P6.01 — On-chain Listener & Orchestrator
 
 ---
 
@@ -457,6 +458,7 @@ model ThreatReport {
 - P2.02 — Internal APIs: `src/app/api/{honeypots,reports}/route.ts` + `src/lib/api/{errors,rateLimit}.ts`; `zod` promoted to direct dep.
 - P3.01 — AI provider abstraction (`src/lib/ai/provider.ts`) over LangChain; OpenAI default, Gemini alternative.
 - P4.01 — Analysis Agent (`src/agents/analysisAgent.ts` + `src/agents/tools/web3Tools.ts`); structured `ThreatReport` via mockable tool + model.
+- P4.02 — Deployment Agent (`src/agents/deployAgent.ts`); template selection + `MAINNET_DEPLOY_APPROVED` permission gate; reject unapproved remote deploys.
 
 ### Current
 - (none)
@@ -465,11 +467,11 @@ model ThreatReport {
 - (None)
 
 ### Tests
-- passed: `npm test` (13 passed / 2 skipped live-node), `npx hardhat test` 5/5, `npm run build`, `npm run lint`
+- passed: `npm test` (18 passed / 2 skipped live-node), `npx hardhat test` 5/5, `npm run build`, `npm run lint`
 - failed: (None)
 
 ### Documentation Updated
-- docs/05-database-design.md (P1.01, P2.01) · docs/06-api-design.md (P2.02) · docs/07-ai-architecture.md + docs/21-env (P3.01) · docs/08-agent-architecture.md (P4.01) · docs/04, 12, 14 · DEC-001..006 · changelog P0.01–P4.01
+- docs/05 (P1.01,P2.01) · docs/06 (P2.02) · docs/07 + docs/21-env (P3.01) · docs/08-agent-architecture.md (P4.01, P4.02) · docs/04, 12, 14 · DEC-001..006 · changelog P0.01–P4.02
 
 ### Blockers
 - None.
@@ -485,4 +487,4 @@ model ThreatReport {
 - Dev infra after reboot: `podman start honychain-db`, `npm run chain`.
 
 ### Next Recommended Task
-- P4.02 — Deployment Agent Implementation (`src/agents/deployAgent.ts`)
+- P5.01 — Dashboard UI (`app/page.tsx`, `components/HoneypotList.tsx`, `components/ThreatFeed.tsx`)

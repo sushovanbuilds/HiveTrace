@@ -2,6 +2,12 @@
 
 Track meaningful project-level changes, not every edit.
 
+### 2026-08-26 — P4.02: Deployment Agent
+- **What changed:** Added `src/agents/deployAgent.ts` with `deployAgent({type?, network?, rpcUrl?, approved?, deployImpl?, model?})`. Resolves a honeypot template from `TEMPLATE_CATALOG` (currently `SimpleHoneypot`; optionally chosen by the LLM) and deploys via the P1.02 `deployContract` service. **Permission boundary:** any non-`local` target is rejected with `DeploymentRejectedError` unless `MAINNET_DEPLOY_APPROVED=true` or `approved:true` — enforcing plan §7 / §17 (no unapproved mainnet/testnet deploys). Tool + model are injectable.
+- **Why:** Task P4.02 — agent that decides and deploys honeypots with a hard approval gate; unblocks P6.01 autonomous deploy + P5.01.
+- **Impact:** 5 new unit tests (reject mainnet/testnet unapproved; allow local; allow approved-remote; LLM template choice) green; full suite 18 passed / 2 skipped, lint + build clean.
+- **Migration/action required:** Set `MAINNET_DEPLOY_APPROVED=true` only in explicitly approved, non-web/CI contexts (per plan §17). Deployment to localhost never requires it.
+
 ### 2026-08-26 — P4.01: Analysis Agent
 - **What changed:** Added `src/agents/analysisAgent.ts` (`analyzeTransaction`) and `src/agents/tools/web3Tools.ts` (`fetchTransaction`). The agent pulls raw tx/receipt/logs via an ethers `JsonRpcProvider` (read-only, localhost default), prompts the LLM (provider abstraction from P3.01, injectable model), and validates the JSON response against `ThreatReportSchema` (zod: summary/severity/vector). Tolerates markdown-fenced output; throws on tool error or schema-invalid model output. No DB writes — persistence is deferred to the P6.01 orchestrator.
 - **Why:** Task P4.01 — turn captured transactions into structured threat intelligence; unblocks P6.01 listener→report flow.
