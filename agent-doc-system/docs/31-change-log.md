@@ -2,6 +2,12 @@
 
 Track meaningful project-level changes, not every edit.
 
+### 2026-08-26 — P6.01: Listener & Orchestrator
+- **What changed:** Added `src/services/listener.ts` (`startListener` — polls blocks via an injectable ethers `JsonRpcProvider`; pure `txsTargetingAddresses` helper matches txs to monitored honeypot addresses case-insensitively) and `src/services/orchestrator.ts` (`processTransaction` — runs `analyzeTransaction`, resolves the targeted honeypot by the tx's `to` address, persists an `Event` + `ThreatReport`, and flips the honeypot to `COMPROMISED` on HIGH/CRITICAL). Closes the MVP loop: detected attack → AI analysis → DB report → dashboard.
+- **Why:** Task P6.01 — tie deployment, analysis, and DB together into an autonomous flow. Plan §20 MVP DoD.
+- **Impact:** 3 new unit tests (listener matching, orchestrator persistence + COMPROMISED flip + unknown-honeypot rejection) + 1 skip-guarded DB-integration test (real `ThreatReport` linked to a real honeypot). Full suite 28 passed / 2 skipped, lint + build clean.
+- **Migration/action required:** The listener is not auto-started inside the Next server; wire `startListener({ addressesProvider: () => db.honeypot.findMany(...), onTransaction: processTransaction })` in a worker/process for autonomous runtime operation (see plan §23).
+
 ### 2026-08-26 — P5.01: Dashboard UI
 - **What changed:** Added `src/app/page.tsx` (client dashboard), `src/components/HoneypotList.tsx`, `src/components/ThreatFeed.tsx`, and `src/lib/types.ts` (shared `Honeypot`/`ThreatReport` interfaces + `severityRank`). The page polls `/api/honeypots` and `/api/reports?limit=50` every 15s and renders stat cards, a honeypot table (status pills, empty + skeleton states), and a severity-sorted threat feed (empty + skeleton states), with a page-level error banner. Styling is a Tailwind v4 dark "console" theme. **shadcn/ui was intentionally not adopted** — the project keeps a minimal dependency surface; documented in docs/09.
 - **Why:** Task P5.01 — main UI consuming the P2.02 APIs; closes the loop for the MVP definition of done.

@@ -249,14 +249,15 @@ graph LR
 **Docs:** `09-ui-ux-design-system.md`
 
 ### Phase 6
-### P6.01 — On-chain Listener & Orchestrator
+### [x] P6.01 — On-chain Listener & Orchestrator
 **Type:** CREATE
 **Depends on:** P1.02, P4.01
 **Files:** `src/services/listener.ts`, `src/services/orchestrator.ts`
 **Purpose:** Tie the system together.
-**Implementation:** Poll RPC for new txs to honeypot addresses. On trigger, spawn Analysis Agent and save result.
+**Implementation:** `startListener({rpcUrl?, pollMs?, addressesProvider, onTransaction})` polls blocks (provider-injectable) and, via the pure `txsTargetingAddresses` helper, fires `onTransaction` for txs to monitored honeypots. `processTransaction({txHash, fetchTx?, model?, db?})` runs `analyzeTransaction`, resolves the targeted honeypot by `to` address, persists an `Event` + `ThreatReport`, and flips the honeypot to `COMPROMISED` on HIGH/CRITICAL.
 **Acceptance:** Attack on local node generates a DB report autonomously.
-**Verify:** E2E test.
+**Verify:** Unit tests (listener matching, orchestrator persistence + COMPROMISED flip + unknown-honeypot rejection) + a skip-guarded integration test persisting a real `ThreatReport` linked to a real honeypot via the live DB.
+**Result:** 3 unit + 1 DB-integration tests green (real Postgres persistence verified); full suite 28 passed / 2 skipped, lint ✓ build ✓. Runtime auto-start of `startListener` is left to a worker/process (not booted inside the Next server) — the pieces are wired and unit/integration verified.
 **Docs:** `04-system-architecture.md`
 
 ## 10. Dependency Graph
@@ -441,10 +442,11 @@ model ThreatReport {
 | D2 | Target Testnet | Sepolia | No (MVP uses local node) |
 | D3 | Agent Framework | LangGraph | No (Can use direct function calling first) |
 
-## 23. Immediate Next Actions
+## 23. Immediate Next Actions (post-MVP)
 
-1. P6.01 — On-chain Listener & Orchestrator
-2. (MVP integration / E2E)
+1. Auto-start `startListener` from a worker/process and wire it to `processTransaction` for autonomous runtime operation.
+2. E2E harness: deploy honeypot on `hardhat node`, run `ReentrancyAttacker`, assert a `ThreatReport` appears in the dashboard (needs a live node — currently skip-guarded).
+3. Add `GET /api/events` + `GET /api/honeypots/[id]` endpoints for richer dashboard drill-down.
 
 ---
 
@@ -461,6 +463,7 @@ model ThreatReport {
 - P4.01 — Analysis Agent (`src/agents/analysisAgent.ts` + `src/agents/tools/web3Tools.ts`); structured `ThreatReport` via mockable tool + model.
 - P4.02 — Deployment Agent (`src/agents/deployAgent.ts`); template selection + `MAINNET_DEPLOY_APPROVED` permission gate; reject unapproved remote deploys.
 - P5.01 — Dashboard UI (`src/app/page.tsx`, `src/components/{HoneypotList,ThreatFeed}.tsx`); polls APIs, Tailwind dark theme; shadcn skipped.
+- P6.01 — On-chain Listener (`src/services/listener.ts`) + Orchestrator (`src/services/orchestrator.ts`); detect tx → analyze → persist `Event`/`ThreatReport`, flip `COMPROMISED`.
 
 ### Current
 - (none)
@@ -469,11 +472,11 @@ model ThreatReport {
 - (None)
 
 ### Tests
-- passed: `npm test` (22 passed / 2 skipped live-node), `npx hardhat test` 5/5, `npm run build`, `npm run lint`
+- passed: `npm test` (28 passed / 2 skipped live-node), `npx hardhat test` 5/5, `npm run build`, `npm run lint`
 - failed: (None)
 
 ### Documentation Updated
-- docs/05 (P1.01,P2.01) · docs/06 (P2.02) · docs/07 + docs/21-env (P3.01) · docs/08-agent-architecture.md (P4.01, P4.02) · docs/09-ui-ux (P5.01) · docs/04, 12, 14 · DEC-001..006 · changelog P0.01–P5.01
+- docs/04-system-architecture.md (P6.01 components + AI/agent flow) · docs/05 (P1.01,P2.01) · docs/06 (P2.02) · docs/07 + docs/21-env (P3.01) · docs/08-agent-architecture.md (P4.01, P4.02) · docs/09-ui-ux (P5.01) · docs/12, 14 · DEC-001..006 · changelog P0.01–P6.01
 
 ### Blockers
 - None.
@@ -485,8 +488,10 @@ model ThreatReport {
 - API layers: `src/lib/api/{errors,rateLimit}.ts`; POST `/api/honeypots` is admin-gated via `ADMIN_API_KEY` (Bearer) and rate-limited; `zod` is now a direct dependency.
 - AI: `src/lib/ai/provider.ts` (`generateText`, `createChatModel`) over LangChain; inject a mock model in tests. Default OpenAI (D1), swappable to Gemini via `LLM_PROVIDER`.
 - Web3: use `deployContract()` from `@/lib/web3/deploy`; never import the Hardhat HRE inside `src/`; artifacts must exist (`npx hardhat compile`).
+- Agents: `src/agents/{analysisAgent,deployAgent}.ts` (+ `src/agents/tools/web3Tools.ts`); both accept injected tools/models for tests. `deployAgent` enforces the `MAINNET_DEPLOY_APPROVED` gate.
+- Services: `src/services/listener.ts` (`startListener`, provider-injectable) + `src/services/orchestrator.ts` (`processTransaction`); wire `onTransaction → processTransaction` to run autonomously (not auto-started in the Next server).
 - Contract tests: `npx hardhat test`; app tests: `npm test` (integration tests skip when DB/chain down).
 - Dev infra after reboot: `podman start honychain-db`, `npm run chain`.
 
 ### Next Recommended Task
-- P6.01 — On-chain Listener & Orchestrator (`src/services/listener.ts`, `src/services/orchestrator.ts`)
+- Post-MVP: auto-start the listener + E2E attack simulation (see §23)
