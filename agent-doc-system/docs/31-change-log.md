@@ -2,6 +2,12 @@
 
 Track meaningful project-level changes, not every edit.
 
+### 2026-08-26 — P4.01: Analysis Agent
+- **What changed:** Added `src/agents/analysisAgent.ts` (`analyzeTransaction`) and `src/agents/tools/web3Tools.ts` (`fetchTransaction`). The agent pulls raw tx/receipt/logs via an ethers `JsonRpcProvider` (read-only, localhost default), prompts the LLM (provider abstraction from P3.01, injectable model), and validates the JSON response against `ThreatReportSchema` (zod: summary/severity/vector). Tolerates markdown-fenced output; throws on tool error or schema-invalid model output. No DB writes — persistence is deferred to the P6.01 orchestrator.
+- **Why:** Task P4.01 — turn captured transactions into structured threat intelligence; unblocks P6.01 listener→report flow.
+- **Impact:** 3 new unit tests (mocked tx + model) green; full suite 13 passed / 2 skipped, lint + build clean.
+- **Migration/action required:** None. Tool and model are dependency-injected, so no RPC/LLM keys are needed for unit tests.
+
 ### 2026-08-26 — P3.01: AI provider abstraction
 - **What changed:** Added `src/lib/ai/provider.ts` with `createChatModel()` (LangChain chat model; OpenAI `gpt-4o` default per D1, Gemini `gemini-1.5-pro` alternative per §13, selected via `LLM_PROVIDER`) and `generateText()` (system+prompt → extracted string, tolerant of array-shaped output). Added direct deps `@langchain/core@1.2.9`, `@langchain/openai@1.5.10`, `@langchain/google-genai@2.3.0`. `.env.example` documents `LLM_PROVIDER`/`OPENAI_*`/`GOOGLE_*`/`GEMINI_*`.
 - **Why:** Task P3.01 — isolate LLM calls behind a swappable provider (unblocks P4.01/P4.02 agents). Plan §13 specifies LangChain wrapping; D1 picks OpenAI default.

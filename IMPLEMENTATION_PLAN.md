@@ -214,14 +214,15 @@ graph LR
 **Docs:** `07-ai-architecture.md`, `21-environment-configuration.md`
 
 ### Phase 4
-### P4.01 — Analysis Agent Implementation
+### [x] P4.01 — Analysis Agent Implementation
 **Type:** CREATE
 **Depends on:** P3.01, P2.01
 **Files:** `src/agents/analysisAgent.ts`, `src/agents/tools/web3Tools.ts`
 **Purpose:** LLM agent to analyze transaction data.
-**Implementation:** Agent that takes a TxHash, uses a tool to fetch trace/calldata, reasons about the attack, and outputs structured JSON for `ThreatReport`.
+**Implementation:** `analyzeTransaction({txHash, rpcUrl?, fetchTx?, model?})` fetches the tx via the `fetchTransaction` web3 tool (ethers `JsonRpcProvider`), builds a security-analyst prompt, calls `generateText` (provider abstraction, injectable for tests), and parses + validates JSON against `ThreatReportSchema` (zod: summary/severity/vector). Tolerates markdown-fenced model output; throws on tool error or schema-invalid output.
 **Acceptance:** Agent processes a mock attack transaction and returns structured threat intelligence.
-**Verify:** Unit test with mocked tools.
+**Verify:** `npm test` unit tests — mock tx + model returns structured report; code-fence stripping; schema-rejection path.
+**Result:** 3 agent unit tests green; full suite 13 passed / 2 skipped (live-node), lint ✓ build ✓. No DB writes here — persistence is deferred to the orchestrator (P6.01).
 **Docs:** `08-agent-architecture.md`
 
 ### P4.02 — Deployment Agent Implementation
@@ -440,8 +441,8 @@ model ThreatReport {
 
 ## 23. Immediate Next Actions
 
-1. P4.01 — Analysis Agent Implementation
-2. P4.02 — Deployment Agent Implementation
+1. P4.02 — Deployment Agent Implementation
+2. P5.01 — Dashboard UI
 
 ---
 
@@ -455,6 +456,7 @@ model ThreatReport {
 - P2.01 — Domain schema: Honeypot/Event/ThreatReport in `prisma/schema.prisma`; pushed to local DB.
 - P2.02 — Internal APIs: `src/app/api/{honeypots,reports}/route.ts` + `src/lib/api/{errors,rateLimit}.ts`; `zod` promoted to direct dep.
 - P3.01 — AI provider abstraction (`src/lib/ai/provider.ts`) over LangChain; OpenAI default, Gemini alternative.
+- P4.01 — Analysis Agent (`src/agents/analysisAgent.ts` + `src/agents/tools/web3Tools.ts`); structured `ThreatReport` via mockable tool + model.
 
 ### Current
 - (none)
@@ -463,11 +465,11 @@ model ThreatReport {
 - (None)
 
 ### Tests
-- passed: `npm test` (10 passed / 2 skipped live-node), `npx hardhat test` 5/5, `npm run build`, `npm run lint`
+- passed: `npm test` (13 passed / 2 skipped live-node), `npx hardhat test` 5/5, `npm run build`, `npm run lint`
 - failed: (None)
 
 ### Documentation Updated
-- docs/05-database-design.md (P1.01, P2.01) · docs/06-api-design.md (P2.02) · docs/07-ai-architecture.md + docs/21-env (P3.01) · docs/04, 12, 14 · DEC-001..006 · changelog P0.01–P3.01
+- docs/05-database-design.md (P1.01, P2.01) · docs/06-api-design.md (P2.02) · docs/07-ai-architecture.md + docs/21-env (P3.01) · docs/08-agent-architecture.md (P4.01) · docs/04, 12, 14 · DEC-001..006 · changelog P0.01–P4.01
 
 ### Blockers
 - None.
@@ -483,4 +485,4 @@ model ThreatReport {
 - Dev infra after reboot: `podman start honychain-db`, `npm run chain`.
 
 ### Next Recommended Task
-- P4.01 — Analysis Agent Implementation (`src/agents/analysisAgent.ts`, `src/agents/tools/web3Tools.ts`)
+- P4.02 — Deployment Agent Implementation (`src/agents/deployAgent.ts`)
