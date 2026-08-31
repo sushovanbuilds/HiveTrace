@@ -1,26 +1,371 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/* =============================================================
+   HIVETRACE — Design tokens
+   Rebuilt from the Stitch "HoneyChain Narrative" (Material 3 light).
+   One accent (Warm Honey #FFB800), warm neutrals, Geist + Inter.
+   ============================================================= */
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* ── Neutrals ─────────────────────────────────────────────── */
+  --color-background: #f9f9f9;
+  --color-on-background: #1a1c1c;
+  --color-surface: #f9f9f9;
+  --color-on-surface: #1a1c1c;
+  --color-surface-bright: #f9f9f9;
+  --color-surface-dim: #dadada;
+  --color-surface-tint: #7c5800;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #f3f3f3;
+  --color-surface-container: #eeeeee;
+  --color-surface-container-high: #e8e8e8;
+  --color-surface-container-highest: #e2e2e2;
+  --color-surface-variant: #e2e2e2;
+  --color-on-surface-variant: #514532;
+  --color-outline: #837560;
+  --color-outline-variant: #d5c4ab;
+  --color-inverse-surface: #2f3131;
+  --color-inverse-on-surface: #f0f1f1;
+
+  /* ── Primary (honey amber) ────────────────────────────────── */
+  --color-primary: #7c5800;
+  --color-on-primary: #ffffff;
+  --color-primary-container: #ffb800;
+  --color-on-primary-container: #6b4c00;
+  --color-primary-fixed: #ffdea8;
+  --color-primary-fixed-dim: #ffba20;
+  --color-on-primary-fixed: #271900;
+  --color-on-primary-fixed-variant: #5e4200;
+  --color-inverse-primary: #ffba20;
+
+  /* ── Secondary ────────────────────────────────────────────── */
+  --color-secondary: #5f5e5e;
+  --color-on-secondary: #ffffff;
+  --color-secondary-container: #e2dfde;
+  --color-on-secondary-container: #636262;
+  --color-secondary-fixed: #e5e2e1;
+  --color-secondary-fixed-dim: #c8c6c5;
+  --color-on-secondary-fixed: #1c1b1b;
+  --color-on-secondary-fixed-variant: #474746;
+
+  /* ── Tertiary (botanical verified green) ──────────────────── */
+  --color-tertiary: #3b6934;
+  --color-on-tertiary: #ffffff;
+  --color-tertiary-container: #9fd292;
+  --color-on-tertiary-container: #2e5b28;
+  --color-tertiary-fixed: #bcf0ae;
+  --color-tertiary-fixed-dim: #a1d494;
+  --color-on-tertiary-fixed: #002201;
+  --color-on-tertiary-fixed-variant: #23501e;
+
+  /* ── Error ────────────────────────────────────────────────── */
+  --color-error: #ba1a1a;
+  --color-on-error: #ffffff;
+  --color-error-container: #ffdad6;
+  --color-on-error-container: #93000a;
+
+  /* ── Spacing ──────────────────────────────────────────────── */
+  --spacing-stack-sm: 4px;
+  --spacing-unit: 8px;
+  --spacing-stack-md: 16px;
+  --spacing-margin-mobile: 20px;
+  --spacing-gutter: 24px;
+  --spacing-stack-lg: 48px;
+  --spacing-margin-desktop: 64px;
+  --spacing-container-max: 1440px;
+
+  /* ── Radii ────────────────────────────────────────────────── */
+  --radius: 0.25rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+  --radius-2xl: 1rem;
+  --radius-3xl: 1.5rem;
+
+  /* ── Fonts ────────────────────────────────────────────────── */
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+
+  /* Type scale (Stitch tokens) */
+  --text-display-hero: 72px;
+  --text-display-hero--line-height: 80px;
+  --text-display-hero--letter-spacing: -0.04em;
+  --text-display-hero--font-weight: 700;
+
+  --text-headline-lg: 40px;
+  --text-headline-lg--line-height: 48px;
+  --text-headline-lg--letter-spacing: -0.02em;
+  --text-headline-lg--font-weight: 600;
+
+  --text-headline-lg-mobile: 32px;
+  --text-headline-lg-mobile--line-height: 40px;
+  --text-headline-lg-mobile--letter-spacing: -0.02em;
+  --text-headline-lg-mobile--font-weight: 600;
+
+  --text-headline-md: 24px;
+  --text-headline-md--line-height: 32px;
+  --text-headline-md--font-weight: 600;
+
+  --text-body-lg: 18px;
+  --text-body-lg--line-height: 28px;
+  --text-body-lg--font-weight: 400;
+
+  --text-body-md: 15px;
+  --text-body-md--line-height: 24px;
+  --text-body-md--font-weight: 400;
+
+  --text-metadata-sm: 12px;
+  --text-metadata-sm--line-height: 16px;
+  --text-metadata-sm--letter-spacing: 0.02em;
+  --text-metadata-sm--font-weight: 500;
+
+  --text-label-caps: 11px;
+  --text-label-caps--line-height: 12px;
+  --text-label-caps--letter-spacing: 0.05em;
+  --text-label-caps--font-weight: 700;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* =============================================================
+   Base
+   ============================================================= */
+html {
+  background: var(--color-background);
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  margin: 0;
+  min-height: 100dvh;
+  background: var(--color-background);
+  color: var(--color-on-background);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background: var(--color-primary-container);
+  color: var(--color-on-primary-container);
+}
+
+/* =============================================================
+   Material Symbols (self-hosted class default)
+   ============================================================= */
+.material-symbols-outlined {
+  font-family: "Material Symbols Outlined";
+  font-weight: normal;
+  font-style: normal;
+  font-size: 20px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+  -webkit-font-feature-settings: "liga";
+  -webkit-font-smoothing: antialiased;
+}
+
+.material-symbols-outlined.mso-fill {
+  font-variation-settings: "FILL" 1, "wght" 400, "GRAD" 0, "opsz" 24;
+}
+
+/* =============================================================
+   Reusable surfaces (from the Stitch screens)
+   ============================================================= */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.04);
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(0, 0, 0, 0.04);
+  box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.02), 0 2px 4px -2px rgba(0, 0, 0, 0.02);
+}
+
+.card-border {
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.metric-card {
+  background-color: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 2px 8px -2px rgba(0, 0, 0, 0.02);
+}
+
+.chart-gradient {
+  background: linear-gradient(180deg, rgba(255, 184, 0, 0.15) 0%, rgba(255, 184, 0, 0) 100%);
+}
+
+.chart-grid {
+  background-image: linear-gradient(to right, #f3f3f3 1px, transparent 1px),
+    linear-gradient(to bottom, #f3f3f3 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+.hash-mono {
+  font-family: var(--font-mono);
+  font-feature-settings: "tnum" on, "zero" on;
+  font-variant-numeric: tabular-nums;
+}
+
+.hide-scrollbar::-webkit-scrollbar,
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.hide-scrollbar,
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+/* =============================================================
+   Timeline primitives
+   ============================================================= */
+.timeline-line {
+  width: 1px;
+  background: linear-gradient(to bottom, #9fd292 0%, #e2e2e2 100%);
+}
+
+.timeline-node {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 2px solid #e2dfde;
+  z-index: 10;
+}
+
+.timeline-node.active {
+  background: #ffb800;
+  border-color: #ffb800;
+}
+
+.timeline-node-rail {
+  position: absolute;
+  top: 24px;
+  bottom: -24px;
+  left: 7px;
+  width: 2px;
+  background: #e2dfde;
+  z-index: 0;
+}
+
+.timeline-line-glow {
+  box-shadow: 0 0 12px 2px rgba(255, 184, 0, 0.4);
+}
+
+/* =============================================================
+   Motion
+   ============================================================= */
+@keyframes pulse-ring {
+  0% { transform: scale(1); opacity: 0.6; }
+  100% { transform: scale(2.4); opacity: 0; }
+}
+.node-pulse {
+  position: relative;
+}
+.node-pulse::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 2px solid rgba(255, 184, 0, 0.6);
+  border-radius: 9999px;
+  animation: pulse-ring 2s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+
+@keyframes verified-ripple {
+  0% { transform: scale(1); opacity: 0.7; }
+  100% { transform: scale(2.5); opacity: 0; }
+}
+.verified-dot {
+  position: relative;
+}
+.verified-dot::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border-radius: 9999px;
+  background: currentColor;
+  opacity: 0.5;
+  animation: verified-ripple 2s ease-out infinite;
+}
+
+@keyframes scanline {
+  0% { top: 0; opacity: 0; }
+  15% { opacity: 1; }
+  85% { opacity: 1; }
+  100% { top: 240px; opacity: 0; }
+}
+.scan-line {
+  top: 0;
+  animation: scanline 2.5s linear infinite;
+}
+
+@keyframes corner-pulse {
+  0%, 100% { box-shadow: 0 0 0 rgba(255, 184, 0, 0); }
+  50% { box-shadow: 0 0 14px rgba(255, 184, 0, 0.65); }
+}
+.corner-pulse {
+  animation: corner-pulse 2s ease-in-out infinite;
+}
+
+@keyframes dash {
+  to { stroke-dashoffset: -1000; }
+}
+.route-line {
+  stroke-dasharray: 6 6;
+  animation: dash 20s linear infinite;
+}
+
+@keyframes growDown {
+  0% { transform: scaleY(0); }
+  100% { transform: scaleY(1); }
+}
+.progress-line-animation {
+  animation: growDown 2s ease-out forwards;
+  transform-origin: top;
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-up {
+  opacity: 0;
+  animation: fadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.stagger-1 { animation-delay: 0.1s; }
+.stagger-2 { animation-delay: 0.2s; }
+.stagger-3 { animation-delay: 0.3s; }
+.stagger-4 { animation-delay: 0.4s; }
+
+@keyframes drawLine {
+  from { stroke-dashoffset: 1000; }
+  to { stroke-dashoffset: 0; }
+}
+.animate-chart-line {
+  stroke-dasharray: 1000;
+  stroke-dashoffset: 0;
+  animation: drawLine 2s ease-out forwards;
+}
+
+/* Map backdrops (light + dark) */
+.map-bg {
+  background-color: #1a1c1c;
+  background-image:
+    radial-gradient(circle at 25% 30%, rgba(255, 184, 0, 0.16) 0%, transparent 42%),
+    radial-gradient(circle at 75% 70%, rgba(255, 184, 0, 0.1) 0%, transparent 40%);
+}
+
+/* Sidebar/rail link reset */
+a, button {
+  -webkit-tap-highlight-color: transparent;
 }

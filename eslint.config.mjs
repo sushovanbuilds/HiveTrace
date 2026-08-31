@@ -16,6 +16,7 @@ const eslintConfig = defineConfig([
     "types/**",
     "artifacts/**",
     "cache/**",
+    "hive-trace/**",
   ]),
 ]);
 

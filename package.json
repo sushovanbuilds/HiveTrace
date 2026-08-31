@@ -9,16 +9,19 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
-    "chain": "hardhat node",
     "postinstall": "prisma generate",
-    "db:check": "tsx scripts/check-db.ts"
+    "db:seed": "tsx prisma/seed.ts",
+    "db:push": "prisma db push",
+    "db:studio": "prisma studio"
   },
   "dependencies": {
     "@langchain/core": "^1.2.9",
     "@langchain/google-genai": "^2.3.0",
     "@langchain/openai": "^1.5.10",
+    "@phosphor-icons/react": "^2.1.10",
     "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",
+    "clsx": "^2.1.1",
     "next": "16.3.3",
     "react": "19.2.8",
     "react-dom": "19.2.8",

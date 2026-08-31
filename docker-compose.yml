@@ -1,0 +1,30 @@
+# Local development stack for HIVETRACE.
+#
+#   docker compose up -d        # start Postgres
+#   npm run db:migrate          # apply schema
+#   npm run db:seed             # load synthetic demo data
+#
+# Credentials match the DATABASE_URL in .env.example. This is a development
+# stack only — do not reuse these credentials anywhere else.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: hivetrace-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: honychain
+      POSTGRES_PASSWORD: honychain_dev
+      POSTGRES_DB: honychain
+    ports:
+      - "5432:5432"
+    volumes:
+      - hivetrace-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U honychain -d honychain"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  hivetrace-pgdata:

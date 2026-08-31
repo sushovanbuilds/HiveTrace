@@ -1,7 +1,5 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
+// HIVETRACE — Honey Traceability & Smart Beekeeping Platform
+// Phase 0 (Foundation) + Phase 1 (Core Traceability) schema
 
 generator client {
   provider = "prisma-client"
@@ -12,50 +10,426 @@ datasource db {
   provider = "postgresql"
 }
 
-// Generic key/value store used to verify DB connectivity (P0.02).
-model Config {
-  id        String   @id @default(cuid())
-  key       String   @unique
-  value     Json
-  updatedAt DateTime @updatedAt
-}
+// ─── ORGANISATIONS & ACCESS ────────────────────────────────────────
 
-// A deployed honeypot contract (P2.01, IMPLEMENTATION_PLAN.md §11).
-model Honeypot {
+model Organisation {
   id        String   @id @default(cuid())
-  address   String   @unique
-  network   String // e.g. 'local', 'sepolia'
-  type      String // e.g. 'ERC20', 'Reentrancy'
-  status    String // 'ACTIVE', 'COMPROMISED', 'RETIRED'
+  name      String
+  type      String   // 'BEEKEEPER', 'COLLECTOR', 'LAB', 'PROCESSOR', 'DISTRIBUTOR', 'ADMIN'
   createdAt DateTime @default(now())
-  events    Event[]
+  users     User[]
+  farms     Farm[]
+  batches   Batch[]
+  qualityTests QualityTest[]
 
-  @@index([network])
+  @@index([type])
 }
 
-// An on-chain interaction captured for a honeypot (P2.01).
-// txHash is globally unique: one canonical Event row per transaction.
-model Event {
-  id         String        @id @default(cuid())
-  txHash     String        @unique
-  honeypotId String
-  honeypot   Honeypot      @relation(fields: [honeypotId], references: [id])
-  rawData    Json
-  createdAt  DateTime      @default(now())
-  report     ThreatReport?
+model User {
+  id             String        @id @default(cuid())
+  email          String        @unique
+  name           String
+  role           String        // 'BEEKEEPER', 'COLLECTOR', 'LAB', 'PROCESSOR', 'DISTRIBUTOR', 'INVESTIGATOR', 'ADMIN', 'CONSUMER'
+  // scrypt digest, format: scrypt$N$r$p$<salt-b64url>$<hash-b64url>. Nullable so
+  // that non-login principals (e.g. imported actors) can exist without a
+  // credential; requireAuth rejects any user without one.
+  passwordHash   String?
+  lastLoginAt    DateTime?
+  organisationId String
+  organisation   Organisation  @relation(fields: [organisationId], references: [id])
+  createdAt      DateTime      @default(now())
+  auditLogs      AuditLog[]
+  notifications  Notification[]
 
+  @@index([role])
+  @@index([organisationId])
+}
+
+// ─── CORE TRACEABILITY ─────────────────────────────────────────────
+
+model Farm {
+  id             String        @id @default(cuid())
+  name           String
+  location       String        // GPS coordinates or address
+  region         String
+  organisationId String
+  organisation   Organisation  @relation(fields: [organisationId], references: [id])
+  createdAt      DateTime      @default(now())
+  hives          Hive[]
+
+  @@index([organisationId])
+}
+
+model Hive {
+  id        String   @id @default(cuid())
+  name      String
+  farmId    String
+  farm      Farm     @relation(fields: [farmId], references: [id])
+  type      String   // 'LANGSTROTH', 'TOP_BAR', 'WARRE', 'OTHER'
+  status    String   @default("ACTIVE") // 'ACTIVE', 'INACTIVE', 'COLONY_LOSS'
+  createdAt DateTime @default(now())
+  harvests  Harvest[]
+
+  @@index([farmId])
+}
+
+model Harvest {
+  id        String   @id @default(cuid())
+  hiveId    String
+  hive      Hive     @relation(fields: [hiveId], references: [id])
+  date      DateTime
+  quantity  Float    // kg
+  honeyType String   // 'MULTIFLORAL', 'ACACIA', 'MANUKA', 'EUCALYPTUS', 'OTHER'
+  createdAt DateTime @default(now())
+  batches   Batch[]
+
+  @@index([hiveId])
+  @@index([date])
+}
+
+model Batch {
+  id                String        @id @default(cuid())
+  publicCode        String        @unique // human-readable batch code (e.g. "HC-2024-001")
+  harvestId         String?
+  harvest           Harvest?      @relation(fields: [harvestId], references: [id])
+  organisationId    String
+  organisation      Organisation  @relation(fields: [organisationId], references: [id])
+  honeyType         String
+  floralSource      String?
+  originRegion      String
+  quantity          Float         // kg
+  currentStage      String        @default("HARVEST") // 'HARVEST', 'COLLECTION', 'LAB', 'PROCESSING', 'PACKAGING', 'DISTRIBUTION', 'RETAIL'
+  currentCustodianId String
+  qualityStatus     String        @default("PENDING") // 'PENDING', 'PASSED', 'FAILED', 'QUARANTINE'
+  riskScore         Float         @default(0) // 0-100
+  riskState         String        @default("LOW") // 'LOW', 'MEDIUM', 'HIGH'
+  verificationState String        @default("UNVERIFIED") // 'UNVERIFIED', 'VERIFIED', 'DISPUTED'
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  events            BatchEvent[]
+  lineage           BatchLineage[] @relation("SourceBatch")
+  childLineage      BatchLineage[] @relation("TargetBatch")
+  custodyTransfers  CustodyTransfer[]
+  qualityTests      QualityTest[]
+  riskScores        RiskScore[]
+  alerts            Alert[]
+  qrTokens          QRToken[]
+  documents         Document[]
+
+  @@index([currentStage])
+  @@index([riskState])
+  @@index([qualityStatus])
+  @@index([organisationId])
+}
+
+model BatchEvent {
+  id        String   @id @default(cuid())
+  batchId   String
+  batch     Batch    @relation(fields: [batchId], references: [id])
+  type      String   // Event type enum (see plan §7)
+  data      Json     // event-specific payload
+  actorId   String   // user who triggered
+  timestamp DateTime @default(now())
+
+  @@index([batchId])
+  @@index([type])
+  @@index([timestamp])
+}
+
+model BatchLineage {
+  id            String  @id @default(cuid())
+  sourceBatchId String
+  sourceBatch   Batch   @relation("SourceBatch", fields: [sourceBatchId], references: [id])
+  targetBatchId String
+  targetBatch   Batch   @relation("TargetBatch", fields: [targetBatchId], references: [id])
+  relationship  String  // 'SPLIT', 'MERGE', 'TRANSFORM'
+  ratio         Float?  // for splits: what fraction went to target
+  createdAt     DateTime @default(now())
+
+  @@index([sourceBatchId])
+  @@index([targetBatchId])
+}
+
+model CustodyTransfer {
+  id              String   @id @default(cuid())
+  batchId         String
+  batch           Batch    @relation(fields: [batchId], references: [id])
+  fromCustodianId String
+  toCustodianId   String
+  fromRole        String
+  toRole          String
+  location        String?
+  timestamp       DateTime @default(now())
+  notes           String?
+
+  @@index([batchId])
+  @@index([timestamp])
+}
+
+// ─── QUALITY & EVIDENCE ────────────────────────────────────────────
+
+model QualityTest {
+  id              String       @id @default(cuid())
+  batchId         String
+  batch           Batch        @relation(fields: [batchId], references: [id])
+  organisationId  String
+  organisation    Organisation @relation(fields: [organisationId], references: [id])
+  testType        String       // 'MOISTURE', 'HMF', 'PROLINE', 'DIASTASE', 'ELECTRICAL_CONDUCTIVITY', 'C4_SUGAR', 'PALEN', 'HEAVY_METALS'
+  result          Float
+  unit            String
+  method          String?      // test method reference
+  passed          Boolean
+  labName         String?
+  labReportNumber String?
+  testedAt        DateTime     @default(now())
+  documentId      String?
+  document        Document?    @relation(fields: [documentId], references: [id])
+
+  @@index([batchId])
+  @@index([testType])
+  @@index([passed])
+}
+
+model Document {
+  id        String   @id @default(cuid())
+  batchId   String
+  batch     Batch    @relation(fields: [batchId], references: [id])
+  type      String   // 'LAB_REPORT', 'PHOTO', 'CERTIFICATE', 'INVOICE', 'OTHER'
+  name      String
+  url       String   // MinIO/S3 signed URL or local path
+  mimeType  String?
+  size      Int?
+  uploadedBy String
+  createdAt DateTime @default(now())
+  qualityTests QualityTest[]
+
+  @@index([batchId])
+  @@index([type])
+}
+
+// ─── RISK ENGINE ───────────────────────────────────────────────────
+
+model RiskScore {
+  id          String   @id @default(cuid())
+  batchId     String
+  batch       Batch    @relation(fields: [batchId], references: [id])
+  overall     Float    // 0-100
+  state       String   // 'LOW', 'MEDIUM', 'HIGH'
+  labRisk     Float    // 0-100
+  traceabilityRisk Float
+  supplierHistoryRisk Float
+  geoTemporalRisk Float
+  processSensorRisk Float
+  reasons     Json     // array of {rule, description, severity, weight}
+  modelVersion String  @default("rule_v1")
+  calculatedAt DateTime @default(now())
+
+  @@index([batchId])
+  @@index([state])
+  @@index([calculatedAt])
+}
+
+// ─── ALERTS & INCIDENTS ────────────────────────────────────────────
+
+model Alert {
+  id        String   @id @default(cuid())
+  batchId   String
+  batch     Batch    @relation(fields: [batchId], references: [id])
+  type      String   // 'CUSTODY_GAP', 'TIMELINE_IMPOSSIBLE', 'GEO_MISMATCH', 'LAB_FAILURE', 'ABNORMAL_YIELD', 'DUPLICATE_QR', 'SUPPLIER_ISSUE'
+  severity  String   // 'LOW', 'MEDIUM', 'HIGH', 'CRITICAL'
+  message   String
+  metadata  Json?
+  status    String   @default("NEW") // 'NEW', 'ACKNOWLEDGED', 'RESOLVED', 'DISMISSED'
+  incidentId String?
+  incident  Incident? @relation(fields: [incidentId], references: [id])
+  createdAt DateTime @default(now())
+  resolvedAt DateTime?
+
+  @@index([batchId])
+  @@index([severity])
+  @@index([status])
+  @@index([incidentId])
+}
+
+model Incident {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  severity    String   // 'MEDIUM', 'HIGH', 'CRITICAL'
+  status      String   @default("OPEN") // 'OPEN', 'INVESTIGATING', 'RESOLVED', 'CLOSED'
+  batchCount  Int      @default(1) // number of affected batches
+  pattern     Json?    // clustering pattern description
+  createdAt   DateTime @default(now())
+  resolvedAt  DateTime?
+  alerts      Alert[]
+  investigation InvestigationCase?
+
+  @@index([status])
+  @@index([severity])
+}
+
+model InvestigationCase {
+  id           String   @id @default(cuid())
+  incidentId   String   @unique
+  incident     Incident @relation(fields: [incidentId], references: [id])
+  assignedToId String?
+  status       String   @default("OPEN") // 'OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'
+  findings     String?
+  resolution   String?
+  decision     String?  // 'CONFIRMED_FRAUD', 'FALSE_POSITIVE', 'SUPPLIER_ERROR', 'PROCESSING_ERROR', 'OTHER'
+  openedAt     DateTime @default(now())
+  resolvedAt   DateTime?
+  auditLogs    AuditLog[]
+
+  @@index([status])
+}
+
+// ─── BLOCKCHAIN INTEGRITY ──────────────────────────────────────────
+
+model BlockchainAnchor {
+  id              String   @id @default(cuid())
+  batchId         String
+  eventType       String   // event type being anchored
+  eventBundleHash String   // SHA-256 or Merkle root
+  status          String   @default("PENDING") // 'PENDING', 'ANCHORED', 'FAILED'
+  chain           String   // 'POLYGON_TESTNET', 'LOCAL_FABRIC'
+  txHash          String?  // on-chain transaction hash
+  blockNumber     Int?
+  signerIdentity  String
+  anchoredAt      DateTime?
+  createdAt       DateTime @default(now())
+
+  @@index([batchId])
+  @@index([status])
+}
+
+// ─── AI ANALYSIS ───────────────────────────────────────────────────
+
+model AIAnalysis {
+  id        String   @id @default(cuid())
+  batchId   String
+  type      String   // 'RISK_EXPLANATION', 'INCIDENT_SUMMARY', 'EVIDENCE_SUMMARY', 'HIVE_INSIGHT'
+  input     Json
+  output    Json
+  model     String   // 'gpt-4o', 'gemini-1.5-pro', etc.
+  // Nullable: not every provider returns usage counters, and a 0 in a spend
+  // ledger reads as "this call was free" rather than "we do not know".
+  tokensIn  Int?
+  tokensOut Int?
+  createdAt DateTime @default(now())
+
+  @@index([batchId])
+  @@index([type])
+}
+
+// ─── QR VERIFICATION ───────────────────────────────────────────────
+
+model QRToken {
+  id        String   @id @default(cuid())
+  batchId   String
+  batch     Batch    @relation(fields: [batchId], references: [id])
+  token     String   @unique // signed/serialised token
+  scanCount Int      @default(0)
+  lastScan  DateTime?
+  revoked   Boolean  @default(false)
+  createdAt DateTime @default(now())
+  expiresAt DateTime?
+  scans     QRScan[]
+
+  @@index([batchId])
+  @@index([token])
+}
+
+// Per-scan log. A QR label is a physical object, so an unusual scan pattern
+// (many scans from many places in a short window) is the observable signal of
+// label cloning — QR alone cannot prove physical authenticity (plan §13).
+model QRScan {
+  id         String   @id @default(cuid())
+  qrTokenId  String
+  qrToken    QRToken  @relation(fields: [qrTokenId], references: [id])
+  batchId    String
+  ipHash     String?  // salted hash, never the raw address
+  userAgent  String?
+  suspicious Boolean  @default(false)
+  reason     String?
+  scannedAt  DateTime @default(now())
+
+  @@index([qrTokenId])
+  @@index([batchId])
+  @@index([scannedAt])
+}
+
+// ─── AUDIT & NOTIFICATIONS ─────────────────────────────────────────
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  action    String
+  entity    String
+  entityId  String
+  before    Json?
+  after     Json?
+  timestamp DateTime @default(now())
+  investigationId String?
+  investigation InvestigationCase? @relation(fields: [investigationId], references: [id])
+
+  @@index([userId])
+  @@index([entity, entityId])
+  @@index([timestamp])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  type      String   // 'ALERT', 'INCIDENT', 'RISK_CHANGE', 'CUSTODY_TRANSFER', 'LAB_RESULT'
+  title     String
+  message   String
+  read      Boolean  @default(false)
+  link      String?  // deep link to relevant page
+  createdAt DateTime @default(now())
+
+  @@index([userId, read])
   @@index([createdAt])
 }
 
-// AI-generated analysis of an Event (P2.01); strictly 1:1 with Event.
-model ThreatReport {
+model Shipment {
+  id           String   @id @default(cuid())
+  batchId      String
+  fromLocation String
+  toLocation   String
+  carrier      String?
+  departedAt   DateTime
+  arrivedAt    DateTime?
+  status       String   @default("IN_TRANSIT") // 'PREPARING', 'IN_TRANSIT', 'DELIVERED', 'DELAYED'
+  temperature  Float?   // cold chain monitoring
+  createdAt    DateTime @default(now())
+
+  @@index([batchId])
+  @@index([status])
+}
+
+model ConsentRecord {
   id        String   @id @default(cuid())
-  eventId   String   @unique
-  event     Event    @relation(fields: [eventId], references: [id])
-  summary   String
-  severity  String // 'LOW', 'MEDIUM', 'HIGH', 'CRITICAL'
-  vector    String // e.g. 'Reentrancy', 'Flashloan'
+  batchId   String
+  userId    String
+  type      String   // 'DATA_SHARING', 'QR_PUBLIC', 'AI_ANALYSIS'
+  granted   Boolean
+  scope     Json?    // what data is consented
   createdAt DateTime @default(now())
 
-  @@index([severity])
+  @@index([batchId])
+}
+
+model ModelVersion {
+  id          String   @id @default(cuid())
+  name        String   // 'rule_v1', 'ml_v1', etc.
+  type        String   // 'RULE', 'ML', 'LLM'
+  version     Int
+  config      Json
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  @@index([name, version])
 }

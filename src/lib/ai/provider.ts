@@ -12,7 +12,24 @@ export type LlmProvider = "openai" | "gemini";
 // Minimal structural type so callers (and tests) can inject any chat model
 // without depending on LangChain's full BaseChatModel surface.
 export interface ChatModelLike {
-  invoke(messages: unknown): Promise<{ content: unknown }>;
+  invoke(messages: unknown): Promise<{
+    content: unknown;
+    /** LangChain's normalised usage counters; absent on providers that omit them. */
+    usage_metadata?: { input_tokens?: number; output_tokens?: number };
+  }>;
+}
+
+/** What the provider actually charged for, when it says. Never guessed. */
+export interface Usage {
+  tokensIn: number | null;
+  tokensOut: number | null;
+}
+
+export interface GenerateResult {
+  text: string;
+  /** The model that answered, for the audit row — not the one we hoped for. */
+  model: string;
+  usage: Usage;
 }
 
 export interface ChatModelOptions {
@@ -35,6 +52,26 @@ export interface GenerateOptions {
 function resolveProvider(): LlmProvider {
   const raw = (process.env.LLM_PROVIDER ?? "openai").toLowerCase();
   return raw === "gemini" || raw === "google" ? "gemini" : "openai";
+}
+
+/** The model name for the resolved provider, so an audit row cannot claim a
+ *  gpt-4o answer came back when LLM_PROVIDER=gemini served it. */
+export function resolveModelName(provider: LlmProvider = resolveProvider()): string {
+  return provider === "gemini"
+    ? (process.env.GEMINI_MODEL ?? "gemini-1.5-pro")
+    : (process.env.OPENAI_MODEL ?? "gpt-4o");
+}
+
+/**
+ * Whether a key is present for the resolved provider.
+ *
+ * Callers check this instead of catching the throw from `createChatModel`,
+ * because "nobody configured a key" is a 503 the operator must fix, not the
+ * same class of failure as a model refusing or timing out — and the two are
+ * indistinguishable once flattened into one catch block.
+ */
+export function isConfigured(provider: LlmProvider = resolveProvider()): boolean {
+  return Boolean(provider === "gemini" ? process.env.GOOGLE_API_KEY : process.env.OPENAI_API_KEY);
 }
 
 export function createChatModel(options: ChatModelOptions = {}): BaseChatModel {
@@ -84,6 +121,17 @@ function extractText(content: unknown): string {
 }
 
 export async function generateText(opts: GenerateOptions): Promise<string> {
+  return (await generate(opts)).text;
+}
+
+/**
+ * Like `generateText`, but also returns what the call cost and which model
+ * answered. Persisting an analysis needs both; the previous caller hardcoded
+ * `tokensIn: 0, tokensOut: 0`, which is fabricated telemetry in a table whose
+ * whole purpose is to account for model spend.
+ */
+export async function generate(opts: GenerateOptions): Promise<GenerateResult> {
+  const injected = opts.model !== undefined;
   const model =
     opts.model ??
     createChatModel({
@@ -95,6 +143,17 @@ export async function generateText(opts: GenerateOptions): Promise<string> {
   if (opts.system) messages.push(new SystemMessage(opts.system));
   messages.push(new HumanMessage(opts.prompt));
 
-  const result = await model.invoke(messages);
-  return extractText(result.content);
+  const result = await (model as ChatModelLike).invoke(messages);
+  const usage = result.usage_metadata;
+
+  return {
+    text: extractText(result.content),
+    model: injected ? "injected" : resolveModelName(),
+    // Only what the provider reported. A missing counter stays null rather than
+    // becoming a zero that reads as "this call was free".
+    usage: {
+      tokensIn: typeof usage?.input_tokens === "number" ? usage.input_tokens : null,
+      tokensOut: typeof usage?.output_tokens === "number" ? usage.output_tokens : null,
+    },
+  };
 }
