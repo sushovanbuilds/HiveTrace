@@ -3,6 +3,7 @@ import { AppShell } from "@/components/app-shell";
 import { Icon } from "@/components/icons";
 import { CopyField } from "@/components/copy-field";
 import { db } from "@/lib/db";
+import { qrToSvg } from "@/lib/qr/svg";
 import { STAGE_ORDER, type BatchStage } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -457,10 +458,53 @@ function BatchDetailInner({
                 </div>
               </div>
             </div>
+
+            {/* Auto-generated QR Code */}
+            <QrCodeCard publicCode={publicCode} />
           </aside>
         </div>
       </div>
     </>
+  );
+}
+
+function QrCodeCard({ publicCode }: { publicCode: string }) {
+  const qrUrl = `/verify/${encodeURIComponent(publicCode)}`;
+  const svg = qrToSvg(qrUrl, {
+    pixelSize: 180,
+    preset: "honey",
+    title: `Verification QR for batch ${publicCode}`,
+  });
+  const source = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+
+  return (
+    <div className="overflow-hidden rounded-2xl border border-outline-variant/30 bg-surface-container-lowest/90 shadow-[0_12px_40px_rgba(0,0,0,0.06)] backdrop-blur-2xl">
+      <div className="p-6">
+        <h4 className="mb-4 flex items-center gap-2 font-label-caps uppercase tracking-[0.1em] text-secondary">
+          <Icon name="qr_code_2" className="text-[18px]" />
+          Verification QR
+        </h4>
+        <div className="flex flex-col items-center gap-4">
+          <img
+            src={source}
+            width={180}
+            height={180}
+            alt={`QR code for batch ${publicCode}`}
+            className="rounded-lg bg-white p-2 shadow-sm"
+          />
+          <p className="text-center text-metadata-sm text-on-surface-variant">
+            Scan to verify batch provenance and quality records.
+          </p>
+          <a
+            href={source}
+            download={`${publicCode}-qr.svg`}
+            className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-outline-variant bg-white px-3 text-metadata-sm font-semibold text-on-surface transition-colors hover:bg-surface-variant"
+          >
+            <Icon name="download" className="text-[18px]" /> Download QR
+          </a>
+        </div>
+      </div>
+    </div>
   );
 }
 

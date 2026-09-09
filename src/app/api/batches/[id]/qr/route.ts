@@ -6,13 +6,25 @@ import { route } from "@/lib/api/handler";
 import { rateLimit, clientKey } from "@/lib/api/rateLimit";
 import { requireCapability } from "@/lib/auth/guard";
 import { issueQRToken, qrVerificationUrl } from "@/lib/services/qr";
-import { qrToSvg } from "@/lib/qr/svg";
+import { qrToSvg, type QrSvgOptions } from "@/lib/qr/svg";
 
 const IssueSchema = z.object({
   /** Optional shelf life. Omitted means the label never expires on its own. */
   expiresInDays: z.number().int().positive().max(3650).optional(),
   /** Retire previously printed labels for this batch. */
   revokeExisting: z.boolean().optional(),
+  /** QR color preset: classic, honey, forest, ocean, dark, amber. */
+  preset: z.string().optional(),
+  /** Custom dark module color (hex). */
+  dark: z.string().optional(),
+  /** Custom light background color (hex). */
+  light: z.string().optional(),
+  /** Base64-encoded logo data URI to embed in the center of the QR code. */
+  logo: z.string().optional(),
+  /** Logo size as fraction of QR width (0.1–0.3). Default 0.2. */
+  logoSize: z.number().min(0.1).max(0.3).optional(),
+  /** Module corner radius (0 = square, 0.4 = rounded). Default 0. */
+  moduleRadius: z.number().min(0).max(0.5).optional(),
 });
 
 /** Lists the labels issued for a batch. Tokens are never returned in full. */
@@ -124,6 +136,18 @@ export const POST = route(async (
 
   const url = qrVerificationUrl(batch.publicCode, token);
 
+  const qrOptions: QrSvgOptions = {
+    title: `Verification QR for batch ${batch.publicCode}`,
+  };
+  if (parsed.data.preset) qrOptions.preset = parsed.data.preset;
+  if (parsed.data.dark) qrOptions.dark = parsed.data.dark;
+  if (parsed.data.light) qrOptions.light = parsed.data.light;
+  if (parsed.data.logo) qrOptions.logo = parsed.data.logo;
+  if (parsed.data.logoSize !== undefined) qrOptions.logoSize = parsed.data.logoSize;
+  if (parsed.data.moduleRadius !== undefined) qrOptions.moduleRadius = parsed.data.moduleRadius;
+
+  const svg = qrToSvg(url, qrOptions);
+
   await db.batchEvent.create({
     data: {
       batchId: batch.id,
@@ -141,7 +165,7 @@ export const POST = route(async (
         // Returned once, at issuance. Print it now — it is not retrievable later.
         token,
         url,
-        svg: qrToSvg(url, { title: `Verification QR for batch ${batch.publicCode}` }),
+        svg,
         expiresAt,
       },
     },

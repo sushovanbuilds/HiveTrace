@@ -1,19 +1,38 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { appUrl, qrSecret } from "@/lib/env";
 
+import {
+  generateBatchNumber,
+  generateBatchQrCode,
+  downloadBatchQrCode,
+  createBatchWithQr,
+  type BatchNumberOptions,
+  type BatchQrOptions,
+  type DownloadBatchQrOptions,
+  type GeneratedBatchQr,
+} from "@/lib/batch-qr";
+
+export {
+  generateBatchNumber,
+  generateBatchQrCode,
+  downloadBatchQrCode,
+  createBatchWithQr,
+  type BatchNumberOptions,
+  type BatchQrOptions,
+  type DownloadBatchQrOptions,
+  type GeneratedBatchQr,
+};
+
 // ── Public batch codes ─────────────────────────────────────────────────────
 //
 // Random rather than sequential. A sequential code (`count() + 1`) both races
 // against the unique constraint under concurrent writes and lets anyone read
 // production volume off a jar label.
 
-const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no I/O/0/1 — misread on print
+export const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no I/O/0/1 — misread on print
 
 export function generatePublicCode(now: Date = new Date()): string {
-  const bytes = randomBytes(6);
-  let suffix = "";
-  for (const byte of bytes) suffix += CODE_ALPHABET[byte % CODE_ALPHABET.length];
-  return `HC-${now.getUTCFullYear()}-${suffix}`;
+  return generateBatchNumber({ date: now });
 }
 
 // ── Consumer QR tokens ─────────────────────────────────────────────────────

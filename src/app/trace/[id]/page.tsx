@@ -11,6 +11,7 @@ import { DemoBadge } from "@/components/demo/demo-badge";
 import { useDemoData, useDemoSession } from "@/lib/demo/hooks";
 import { ROLE_LABEL } from "@/lib/demo/config";
 import type { DemoRole } from "@/lib/demo/types";
+import { BatchQrDownloader } from "@/components/batch-qr-downloader";
 
 /**
  * Shared batch trace page. Any demo role can open the same batch and watch the
@@ -221,6 +222,12 @@ export default function TracePage() {
               ))}
             </dl>
           </div>
+
+          <BatchQrDownloader
+            batchNumber={batch.publicCode}
+            title="Batch QR Code & Verification Label"
+            showGenerateButton={false}
+          />
 
           <div className="glass-card rounded-xl p-6">
             <h2 className="mb-3 flex items-center gap-2 font-headline-md text-headline-md tracking-tight text-on-surface">

@@ -17,7 +17,7 @@ export const DEMO_NAV: Record<DemoRole, DemoNavItem[]> = {
   BEEKEEPER: [
     { label: "Home", href: "/keeper", icon: "dashboard", match: (p) => p === "/keeper" },
     { label: "Hives", href: "/hives", icon: "hive", match: (p) => p.startsWith("/hives") },
-    { label: "Harvest", href: "/keeper#harvest", icon: "inventory_2", match: (p) => p === "/keeper" },
+    { label: "Harvest & QR", href: "/keeper#harvest", icon: "qr_code_2", match: (p) => p === "/keeper" },
     { label: "Batches", href: "/trace", icon: "inventory_2", match: (p) => p.startsWith("/trace") },
     { label: "Smart Insights", href: "/keeper#insights", icon: "auto_awesome", match: (p) => p === "/keeper" },
     { label: "More", href: "/settings", icon: "more_horiz", match: (p) => p.startsWith("/settings") },
@@ -58,7 +58,7 @@ export const DEMO_NAV: Record<DemoRole, DemoNavItem[]> = {
 export const DEMO_MOBILE_NAV: Record<DemoRole, DemoNavItem[]> = {
   BEEKEEPER: [
     { label: "Home", href: "/keeper", icon: "dashboard", match: (p) => p === "/keeper" },
-    { label: "Harvest", href: "/keeper#harvest", icon: "inventory_2", match: (p) => p === "/keeper" },
+    { label: "Harvest & QR", href: "/keeper#harvest", icon: "qr_code_2", match: (p) => p === "/keeper" },
     { label: "Batches", href: "/trace", icon: "inventory_2", match: (p) => p.startsWith("/trace") },
     { label: "Trace", href: "/trace", icon: "timeline", match: (p) => p.startsWith("/trace") },
   ],

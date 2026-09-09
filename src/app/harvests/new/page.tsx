@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { Icon } from "@/components/icons";
+import { BatchQrDownloader } from "@/components/batch-qr-downloader";
 
 const HONEY_TYPES = ["MULTIFLORAL", "MUSTARD", "LITCHI", "MANGROVE", "ACACIA", "JAMUN", "EUCALYPTUS", "WILDFLOWER", "MANUKA", "OTHER"];
 
@@ -77,9 +78,12 @@ export default function HarvestNewPage() {
                 : "The backend requires a linked harvest record to open a live batch. In demo mode the form accepted your entry."}
             </p>
             {created.code && (
-              <div className="mt-6 rounded-xl border border-outline-variant/30 bg-surface px-5 py-4">
-                <p className="text-label-caps uppercase tracking-widest text-on-surface-variant">Public code</p>
-                <p className="hash-mono mt-1 text-headline-md tracking-tight text-primary">{created.code}</p>
+              <div className="mt-6 text-left">
+                <BatchQrDownloader
+                  batchNumber={created.code}
+                  title="Auto-Generated Batch QR Label"
+                  showGenerateButton={false}
+                />
               </div>
             )}
             <div className="mt-8 flex items-center justify-center gap-3">

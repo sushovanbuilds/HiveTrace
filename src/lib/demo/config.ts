@@ -101,5 +101,9 @@ export const DEMO_BATCH_CODES: string[] = ["HC-2026-00124", "HC-2026-00281"];
 
 /** True when `code` refers to one of the deterministic demo batches. */
 export function isDemoBatchCode(code: string): boolean {
-  return DEMO_BATCH_CODES.includes(code.toUpperCase());
+  const normalized = code.toUpperCase();
+  return (
+    DEMO_BATCH_CODES.includes(normalized) ||
+    /^HC-DEMO-\d{4}-[A-Z2-9]{6}$/.test(normalized)
+  );
 }

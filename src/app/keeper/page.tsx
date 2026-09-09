@@ -14,6 +14,8 @@ import {
 import { useDemoWorkspace } from "@/lib/demo/hooks";
 import { addHarvestBatch } from "@/lib/demo/data";
 import { formatQty } from "@/components/demo/format";
+import { generateBatchNumber } from "@/lib/batch-qr";
+import { BatchQrDownloader } from "@/components/batch-qr-downloader";
 
 const HONEY_CHOICES = [
   "Mustard Honey",
@@ -25,11 +27,12 @@ const HONEY_CHOICES = [
 export default function KeeperPage() {
   const { user, data, ready, mutate } = useDemoWorkspace("BEEKEEPER");
 
-  const [code, setCode] = useState("HC-2026-00124");
+  const [code, setCode] = useState(() => generateBatchNumber());
   const [honey, setHoney] = useState("Mustard Honey");
   const [region, setRegion] = useState("Purulia, West Bengal");
   const [qty, setQty] = useState("420");
   const [flash, setFlash] = useState<string | null>(null);
+  const [lastCreatedBatch, setLastCreatedBatch] = useState<string | null>(null);
 
   if (!ready || !user || !data) {
     return (
@@ -44,12 +47,13 @@ export default function KeeperPage() {
   const awaitedLab = mine.filter((b) => b.quality === "PENDING").length;
 
   const createHarvest = () => {
+    const batchCode = code.trim() || generateBatchNumber();
     const n = Math.max(1, Number(qty) || 0);
     mutate(
       addHarvestBatch(
         data,
         {
-          publicCode: code.trim(),
+          publicCode: batchCode,
           honeyType: honey,
           floralSource: honey.replace(/\s+Honey$/, ""),
           originRegion: region.trim(),
@@ -58,7 +62,9 @@ export default function KeeperPage() {
         { email: user.email, name: user.name },
       ),
     );
-    setFlash(`Harvest registered — ${code.trim()} now moving through the chain.`);
+    setLastCreatedBatch(batchCode);
+    setFlash(`Harvest registered — Batch ${batchCode} created and moving through the chain.`);
+    setCode(generateBatchNumber());
   };
 
   const first = user.name.split(/\s+/)[0];
@@ -71,7 +77,37 @@ export default function KeeperPage() {
         sub="Track your hive output, register harvests, and watch batches move downstream."
       />
 
-      {flash ? (
+      {lastCreatedBatch && (
+        <div className="mb-6 rounded-2xl border border-tertiary/40 bg-tertiary-container/20 p-5 shadow-sm">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
+            <div className="flex items-center gap-3">
+              <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-tertiary text-white shadow-sm">
+                <Icon name="check_circle" className="text-[22px]" />
+              </span>
+              <div>
+                <h3 className="text-[17px] font-semibold text-on-surface">Batch Registered Successfully!</h3>
+                <p className="text-metadata-sm text-on-surface-variant">
+                  Batch <strong className="font-mono text-primary font-bold">#{lastCreatedBatch}</strong> has been registered. Download the official QR code label below.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setLastCreatedBatch(null)}
+              className="text-metadata-sm text-on-surface-variant hover:text-on-surface underline shrink-0"
+            >
+              Dismiss
+            </button>
+          </div>
+          <BatchQrDownloader
+            batchNumber={lastCreatedBatch}
+            title={`QR Label for Batch #${lastCreatedBatch}`}
+            showGenerateButton={false}
+          />
+        </div>
+      )}
+
+      {flash && !lastCreatedBatch ? (
         <div role="status" className="mb-6 flex items-center gap-2 rounded-xl border border-tertiary-container/30 bg-tertiary-container/20 px-4 py-3 text-body-md text-on-tertiary-container">
           <Icon name="check_circle" fill className="text-[20px]" />
           {flash}
@@ -93,16 +129,38 @@ export default function KeeperPage() {
           icon="inventory_2"
         >
           <Card className="space-y-5">
-            <label className="block">
-              <span className="mb-1.5 block text-metadata-sm font-semibold uppercase tracking-wider text-on-surface-variant">
-                Batch code
-              </span>
-              <input
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                className="h-12 w-full rounded-xl border border-outline-variant bg-surface-container-lowest px-4 font-mono text-body-md text-on-surface outline-none focus:border-primary focus:ring-2 focus:ring-primary-container/40"
-              />
-            </label>
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-metadata-sm font-semibold uppercase tracking-wider text-on-surface-variant">
+                  Batch code
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setCode(generateBatchNumber())}
+                  className="inline-flex items-center gap-1 text-[12px] font-semibold text-primary hover:text-primary/80 transition-colors"
+                >
+                  <Icon name="autorenew" className="text-[14px]" />
+                  Auto-generate code
+                </button>
+              </div>
+              <div className="flex gap-2">
+                <input
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                  placeholder="e.g. HC-2026-X8K9M2"
+                  className="h-12 flex-1 rounded-xl border border-outline-variant bg-surface-container-lowest px-4 font-mono text-body-md text-on-surface outline-none focus:border-primary focus:ring-2 focus:ring-primary-container/40"
+                />
+                <button
+                  type="button"
+                  onClick={() => setCode(generateBatchNumber())}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-outline-variant/60 bg-surface-container px-3.5 text-metadata-sm font-semibold text-on-surface transition-all hover:bg-surface-variant active:scale-95"
+                  title="Generate a new batch code"
+                >
+                  <Icon name="autorenew" className="text-[18px] text-primary" />
+                  <span>Generate</span>
+                </button>
+              </div>
+            </div>
             <label className="block">
               <span className="mb-1.5 block text-metadata-sm font-semibold uppercase tracking-wider text-on-surface-variant">
                 Honey type
@@ -157,6 +215,15 @@ export default function KeeperPage() {
             <Button onClick={createHarvest} icon="add_circle" className="w-full">
               Create harvest batch
             </Button>
+
+            {/* Live QR Code Preview & Downloader */}
+            <div className="border-t border-outline-variant/20 pt-4">
+              <BatchQrDownloader
+                batchNumber={code}
+                title="Current Batch QR Label Preview"
+                showGenerateButton={false}
+              />
+            </div>
           </Card>
         </DemoSection>
 

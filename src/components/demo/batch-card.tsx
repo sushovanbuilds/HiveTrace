@@ -6,6 +6,7 @@ import { Pill } from "@/components/ui";
 import { TraceTimeline } from "@/components/demo/timeline";
 import { demoQualityPill, demoRiskPill, formatQty, relativeTime, ROLE_ICON, shareKeys } from "@/components/demo/format";
 import type { DemoBatch } from "@/lib/demo/types";
+import { downloadBatchQrCode } from "@/lib/batch-qr";
 
 export function BatchCard({
   batch,
@@ -69,6 +70,15 @@ export function BatchCard({
               </span>
             ))}
           </div>
+          <button
+            type="button"
+            onClick={() => downloadBatchQrCode({ batchNumber: batch.publicCode, format: "svg" })}
+            className="inline-flex items-center gap-1 rounded-lg border border-outline-variant/30 bg-white/70 px-2.5 py-1.5 text-metadata-sm font-medium text-on-surface transition-all hover:border-primary/40 hover:bg-white hover:text-primary active:scale-95"
+            title={`Download QR code for batch ${batch.publicCode}`}
+          >
+            <Icon name="qr_code_2" className="text-[16px] text-primary" />
+            <span>QR</span>
+          </button>
           <Link
             href={detailHref}
             className="inline-flex items-center gap-1 rounded-lg border border-outline-variant/20 bg-white/50 px-3 py-1.5 text-metadata-sm font-medium text-on-surface-variant transition-colors hover:border-outline-variant/40 hover:text-primary"
