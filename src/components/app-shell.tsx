@@ -264,7 +264,7 @@ function MobileDock({ caps, demoRole }: { caps: string[] | null; demoRole: DemoR
     : MOBILE_DOCK.filter((item) => caps === null || caps.includes(item.cap));
   return (
     <nav className="fixed inset-x-0 bottom-0 z-30 md:hidden">
-      <div className="mx-4 mb-4 rounded-2xl border border-outline-variant/60 bg-surface-container-low/95 shadow-lg shadow-black/5 backdrop-blur-xl">
+      <div className="mx-4 mb-[calc(1rem+env(safe-area-inset-bottom))] rounded-2xl border border-outline-variant/60 bg-surface-container-low/95 shadow-lg shadow-black/5 backdrop-blur-xl">
         <div className="flex items-stretch justify-between px-2 py-2">
           {items.map((item) => {
             const active = item.match ? item.match(pathname) : item.href === pathname;
@@ -400,7 +400,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       </aside>
       <div className="md:pl-64">
         <Topbar user={user} onLogout={logout} demoRole={demoRole} />
-        <main className="mx-auto max-w-[1440px] px-5 md:px-8 pb-28 md:pb-12 pt-6 md:pt-8">
+        <main className="mx-auto max-w-[1440px] px-5 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-6 md:px-8 md:pb-12 md:pt-8">
           {children}
         </main>
       </div>

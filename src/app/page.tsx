@@ -8,7 +8,7 @@ export default function LandingPage() {
       <div className="pointer-events-none absolute -top-72 -right-64 h-[1000px] w-[1000px] rounded-full bg-[radial-gradient(circle,rgba(255,184,0,0.10)_0%,rgba(255,184,0,0)_60%)]" />
 
       {/* Top navigation */}
-      <header className="fixed top-0 z-50 w-full border-b border-outline-variant/10 bg-white/60 backdrop-blur-xl">
+      <header className="fixed top-0 z-50 hidden w-full border-b border-outline-variant/10 bg-white/60 backdrop-blur-xl md:block">
         <div className="mx-auto flex w-full max-w-[1200px] items-center justify-between px-[24px] py-2 md:px-[64px]">
           <div className="flex items-center gap-8">
             <span className="font-headline-md text-headline-md font-bold tracking-tight text-primary">
@@ -37,14 +37,17 @@ export default function LandingPage() {
       </header>
 
       {/* Mobile top bar */}
-      <header className="sticky top-0 z-40 flex w-full items-center justify-between border-b border-outline-variant/10 bg-white/60 px-[24px] py-4 backdrop-blur-xl md:hidden">
+      <header className="sticky top-0 z-40 flex w-full items-center justify-between border-b border-outline-variant/10 bg-white/60 px-5 py-3 backdrop-blur-xl md:hidden">
         <span className="font-headline-md text-headline-md font-bold tracking-tight text-primary">HiveTrace</span>
-        <Icon name="menu" className="text-on-surface-variant" />
+        <Link href="/verify" className="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-[#1a1a1a] px-3 text-metadata-sm font-medium text-white">
+          <Icon name="verified" fill className="text-[17px] text-primary-container" />
+          Verify
+        </Link>
       </header>
 
-      <main className="mx-auto flex w-full max-w-[1200px] flex-col items-center px-[24px] md:px-[64px] pb-[64px] pt-40">
+      <main className="mx-auto flex w-full max-w-[1200px] flex-col items-center px-5 pb-12 pt-12 md:px-[64px] md:pb-[64px] md:pt-40">
         {/* Hero */}
-        <section className="relative z-10 flex min-h-[600px] w-full flex-col items-center gap-8 lg:flex-row">
+        <section className="relative z-10 flex w-full flex-col items-center gap-8 md:min-h-[600px] lg:flex-row">
           <div className="z-20 flex w-full flex-col gap-6 text-left lg:w-1/2">
             <h1 className="text-[40px] font-bold leading-[1.1] tracking-tighter text-on-surface md:text-[72px] md:leading-[1]">
               Sunderbans to&nbsp;Home,{" "}
@@ -70,17 +73,17 @@ export default function LandingPage() {
               Bengal with trusted provenance, quality evidence and intelligent supply-chain
               visibility.
             </p>
-            <div className="mt-2 flex gap-4">
+            <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:gap-4">
               <Link
                 href="/verify"
-                className="inline-flex items-center gap-2 rounded-lg bg-[#1a1a1a] px-6 py-3 text-metadata-sm font-medium text-white shadow-[0_1px_2px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.1)] transition-all duration-200 hover:-translate-y-px hover:bg-[#2a2a2a]"
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-[#1a1a1a] px-6 py-3 text-metadata-sm font-medium text-white shadow-[0_1px_2px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.1)] transition-all duration-200 hover:-translate-y-px hover:bg-[#2a2a2a]"
               >
                 <Icon name="verified" fill className="text-primary-container" />
                 Verify Batch
               </Link>
               <Link
                 href="/dashboard"
-                className="hidden rounded-lg border border-black/10 bg-white/50 px-6 py-3 text-metadata-sm font-medium text-on-surface backdrop-blur transition-all duration-200 hover:-translate-y-px hover:bg-white/80 sm:inline-flex sm:items-center sm:gap-2"
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-black/10 bg-white/50 px-6 py-3 text-metadata-sm font-medium text-on-surface backdrop-blur transition-all duration-200 hover:-translate-y-px hover:bg-white/80"
               >
                 Explore Platform
                 <Icon name="arrow_forward" className="text-[16px]" />
@@ -89,14 +92,14 @@ export default function LandingPage() {
           </div>
 
           {/* Visual / animation area */}
-          <div className="relative mt-16 flex h-[420px] w-full items-center justify-center lg:mt-0 lg:h-[600px] lg:w-1/2">
+          <div className="relative mt-4 flex h-[320px] w-full items-center justify-center sm:mt-10 sm:h-[420px] lg:mt-0 lg:h-[600px] lg:w-1/2">
             <div className="absolute inset-0 -z-10 scale-150 rounded-full bg-gradient-to-br from-primary-container/10 to-transparent blur-3xl" />
             <div className="absolute inset-0">
               <HexOrbit />
             </div>
 
             {/* Floating glass panel: origin */}
-            <div className="glass-panel absolute right-2 top-16 flex animate-[floatY_6s_ease-in-out_infinite] items-center gap-3 rounded-xl p-4 lg:right-6 lg:top-20">
+            <div className="glass-panel absolute right-0 top-6 flex max-w-[calc(100%-1rem)] animate-[floatY_6s_ease-in-out_infinite] items-center gap-3 rounded-xl p-3 sm:right-2 sm:top-16 sm:p-4 lg:right-6 lg:top-20">
               <span className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-tertiary/20 bg-tertiary/10">
                 <Icon name="verified" fill className="text-[16px] text-tertiary" />
               </span>
@@ -109,7 +112,7 @@ export default function LandingPage() {
             </div>
 
             {/* Floating glass panel: anchor */}
-            <div className="glass-panel absolute bottom-16 left-2 flex max-w-[280px] animate-[floatY_7s_ease-in-out_infinite_alternate] items-start gap-3 rounded-xl p-4 lg:bottom-20 lg:left-6">
+            <div className="glass-panel absolute bottom-5 left-0 flex max-w-[calc(100%-1rem)] animate-[floatY_7s_ease-in-out_infinite_alternate] items-start gap-3 rounded-xl p-3 sm:bottom-16 sm:left-2 sm:max-w-[280px] sm:p-4 lg:bottom-20 lg:left-6">
               <Icon name="security" fill className="mt-0.5 text-lg text-primary" />
               <div>
                 <p className="text-metadata-sm font-semibold tracking-tight text-on-surface">
@@ -124,7 +127,7 @@ export default function LandingPage() {
         </section>
 
         {/* Features — bento grid */}
-        <section className="mt-16 flex w-full flex-col gap-16 pt-16">
+        <section className="mt-12 flex w-full flex-col gap-12 pt-8 md:mt-16 md:gap-16 md:pt-16">
           <div className="mx-auto w-full max-w-2xl text-center">
             <h2 className="text-[32px] font-bold tracking-tight text-on-surface md:text-headline-lg">
               The Standard of Purity
@@ -236,7 +239,7 @@ export default function LandingPage() {
       </main>
 
       {/* Footer */}
-      <footer id="about" className="mx-auto mt-16 flex w-full max-w-[1200px] flex-col items-start justify-between border-t border-black/5 px-[24px] py-[64px] md:flex-row md:px-[64px]">
+      <footer id="about" className="mx-auto mt-12 flex w-full max-w-[1200px] flex-col items-start justify-between border-t border-black/5 px-5 py-12 md:mt-16 md:flex-row md:px-[64px] md:py-[64px]">
         <div className="mb-6 flex flex-col gap-2 md:mb-0">
           <span className="font-headline-md text-headline-md font-bold tracking-tight text-primary">
             HiveTrace

@@ -135,6 +135,7 @@ html {
 body {
   margin: 0;
   min-height: 100dvh;
+  overflow-x: hidden;
   background: var(--color-background);
   color: var(--color-on-background);
   font-family: var(--font-sans);
@@ -368,4 +369,18 @@ body {
 /* Sidebar/rail link reset */
 a, button {
   -webkit-tap-highlight-color: transparent;
+}
+
+@media (max-width: 639px) {
+  /* Prevent iOS from zooming the viewport when an operator taps a field. */
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+
+  button,
+  a {
+    touch-action: manipulation;
+  }
 }

@@ -88,7 +88,8 @@ function orderIndex(batch: DemoBatch): number {
 
 export function TraceTimeline({ batch }: { batch: DemoBatch }) {
   return (
-    <ol className="flex flex-wrap items-center gap-y-3">
+    <div className="-mx-1 overflow-x-auto px-1 pb-2 no-scrollbar" aria-label="Batch trace timeline">
+    <ol className="flex min-w-max items-center">
       {TIMELINE_STEPS.map((step, i) => {
         const { state, caption } = stepStatus(batch, i);
         return (
@@ -119,6 +120,7 @@ export function TraceTimeline({ batch }: { batch: DemoBatch }) {
         );
       })}
     </ol>
+    </div>
   );
 }
 
