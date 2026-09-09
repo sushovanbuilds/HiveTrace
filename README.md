@@ -1,36 +1,34 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# HiveTrace
 
-## Getting Started
+HiveTrace is a honey traceability platform with role-based supply-chain workspaces, consumer QR verification, quality evidence, risk signals, and a deterministic presentation demo.
 
-First, run the development server:
+## Demo first
+
+The polished demo flows run without a database. Start the app, open `/login`, and choose any displayed demo account. The shared demo password is `hivetrace-demo`. You can switch workspaces during a presentation and use `/verify` to explore consumer verification.
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Local database (optional)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Database-backed pages and API routes need PostgreSQL. Copy the supplied environment template, start the local service, generate the Prisma client, then create and seed the schema.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+copy .env.example .env
+docker compose up -d
+npm run db:push
+npm run db:seed
+```
 
-## Learn More
+The Compose credentials already match `.env.example`. Before deploying, replace both secrets with different values and set `DATABASE_URL` for the target PostgreSQL instance.
 
-To learn more about Next.js, take a look at the following resources:
+## Checks
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+npm run lint
+npm test
+npm run build
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+`npm run build` does not require `DATABASE_URL`: Next.js can safely inspect route configuration at build time. Live database operations still fail clearly until `DATABASE_URL` is configured.

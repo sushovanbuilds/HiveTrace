@@ -50,3 +50,14 @@ types/
 coverage/
 coverage.json
 ignition/deployments/
+
+# Local agent context, planning artefacts, and generated Graphify output
+/.agents/
+/.claude/
+/.windsurf/
+/agent-doc-system/
+/graphify-out/
+/AGENTS.md
+/CLAUDE.md
+/DESIGN.md
+/IMPLEMENTATION_PLAN_HIVETRACE.md
