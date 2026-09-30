@@ -21,7 +21,7 @@ const PreviewSchema = z.object({
 });
 
 /** Returns available QR color presets and optionally renders a preview SVG. */
-export const GET = route(async (_request: NextRequest) => {
+export const GET = route(async () => {
   return Response.json({
     data: {
       presets: Object.entries(QR_COLOR_PRESETS).map(([key, value]) => ({

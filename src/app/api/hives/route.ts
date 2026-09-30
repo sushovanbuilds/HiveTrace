@@ -5,7 +5,7 @@ import { errorResponse } from "@/lib/api/errors";
 import { PaginationSchema, limit, pageArgs, readJson, readQuery, route } from "@/lib/api/handler";
 import { requireCapability } from "@/lib/auth/guard";
 import { HIVE_STATUSES, HIVE_TYPES, HONEY_TYPES } from "@/lib/types";
-import { ownScopeVia, seesAllOrganisations } from "@/lib/auth/scope";
+import { ownScopeVia } from "@/lib/auth/scope";
 
 const QuerySchema = PaginationSchema.extend({
   farmId: z.string().trim().min(1).max(64).optional(),

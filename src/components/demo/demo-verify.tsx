@@ -173,6 +173,31 @@ export function DemoVerifyView({ code }: { code: string }) {
                   {r.label}
                 </Pill>
               </div>
+
+              <a
+                href="#provenance"
+                className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-body-md font-semibold text-on-primary transition-colors hover:bg-primary/90"
+              >
+                <Icon name="route" className="text-[20px]" />
+                View Traceability
+              </a>
+            </div>
+          </div>
+        </section>
+
+        {/* Origin — consumer-safe apiary facts only */}
+        <section className="mx-auto mb-12 w-full max-w-2xl">
+          <div className="glass-panel rounded-xl p-6">
+            <div className="flex items-start gap-3">
+              <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-tertiary/15 text-tertiary">
+                <Icon name="hive" className="text-[22px]" />
+              </span>
+              <div>
+                <p className="text-body-md font-semibold text-on-surface">From the apiary</p>
+                <p className="text-metadata-sm text-on-surface-variant">
+                  {batch.originRegion} · Keeper: {keeper} · Harvested {fmtDateTime(batch.createdAt)}
+                </p>
+              </div>
             </div>
           </div>
         </section>
@@ -205,7 +230,7 @@ export function DemoVerifyView({ code }: { code: string }) {
 
         {/* Provenance journey */}
         {journey.length > 0 && (
-          <section className="mx-auto mb-12 w-full max-w-2xl">
+          <section id="provenance" className="mx-auto mb-12 w-full max-w-2xl scroll-mt-6">
             <h2 className="mb-4 border-l-4 border-primary-container px-4 font-headline-md text-headline-md text-on-surface">
               Provenance Journey
             </h2>

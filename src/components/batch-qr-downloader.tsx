@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useId } from "react";
+import { useState } from "react";
 import { Icon } from "@/components/icons";
 import {
   generateBatchNumber,
@@ -41,12 +41,16 @@ export function BatchQrDownloader({
   const [downloading, setDownloading] = useState<"svg" | "png" | null>(null);
   const [copied, setCopied] = useState(false);
 
-  // Sync if parent updates batchNumber prop
-  useEffect(() => {
-    if (initialBatchNumber && initialBatchNumber !== currentBatchNumber) {
+  // Sync when the parent updates the batchNumber prop. Done during render
+  // (not in an effect) so a locally generated number isn't clobbered on
+  // every render while the prop stays the same.
+  const [prevBatchNumberProp, setPrevBatchNumberProp] = useState(initialBatchNumber);
+  if (prevBatchNumberProp !== initialBatchNumber) {
+    setPrevBatchNumberProp(initialBatchNumber);
+    if (initialBatchNumber) {
       setCurrentBatchNumber(initialBatchNumber);
     }
-  }, [initialBatchNumber]);
+  }
 
   // Compute the live QR code data
   const qr = generateBatchQrCode(currentBatchNumber, {

@@ -9,13 +9,11 @@ export function TrendChart({
   values,
   height = "h-40",
   tone = "#FFB800",
-  format = (v: number) => String(v),
 }: {
   labels: string[];
   values: number[];
   height?: string;
   tone?: string;
-  format?: (v: number) => string;
 }) {
   const max = Math.max(...values, 1);
   const stepX = 100 / (values.length - 1);

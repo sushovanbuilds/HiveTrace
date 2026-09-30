@@ -1,3 +1,7 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { Icon } from "@/components/icons";
 import { ButtonLink, Card } from "@/components/ui";
@@ -9,10 +13,20 @@ const JOURNEY = [
   { eye: "Kolkata", name: "Lab Testing", icon: "science", desc: "Full purity panel — moisture, HMF, C4 sugars, pollen DNA." },
   { eye: "Sundarbans", name: "Warehouse & Inventory", icon: "warehouse", desc: "Pallet movements synced and custody hand-overs anchored." },
   { eye: "On-The-Move", name: "Distribution", icon: "local_shipping", desc: "Each leg recorded; cold-chain telemetry pushed to ledger." },
-  { eye: "Kolkata", name: "Consumer Verify", icon: "qr_code_scanner", desc: "Scan the label anywhere — the full journey recomputes on-chain." },
+  { eye: "Kolkata", name: "Consumer Verify", icon: "qr_code_scanner", desc: "Scan the label anywhere — the full recorded journey is displayed instantly." },
 ];
 
 export default function TraceabilityPage() {
+  const [code, setCode] = useState("");
+  const router = useRouter();
+
+  function verify(e: React.FormEvent) {
+    e.preventDefault();
+    const trimmed = code.trim();
+    if (!trimmed) return;
+    router.push(`/verify/${encodeURIComponent(trimmed)}`);
+  }
+
   return (
     <AppShell>
       <div className="mb-8 max-w-3xl">
@@ -30,12 +44,19 @@ export default function TraceabilityPage() {
             <p className="text-metadata-sm text-on-surface-variant">Paste a public code, or scan the QR on any HiveTrace label.</p>
           </div>
         </div>
-        <div className="flex min-w-0 items-center gap-3 rounded-xl border border-outline-variant/30 bg-surface px-4 py-3 md:max-w-sm md:flex-1">
+        <form onSubmit={verify} className="flex min-w-0 items-center gap-3 rounded-xl border border-outline-variant/30 bg-surface px-4 py-3 md:max-w-sm md:flex-1">
           <Icon name="search" className="text-[20px] text-on-surface-variant" />
-          <input placeholder="WB-PUR-2026-001…" className="w-full min-w-0 bg-transparent text-body-md text-on-surface placeholder:text-on-surface-variant focus:outline-none" />
-        </div>
+          <input
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            placeholder="WB-PUR-2026-001…"
+            aria-label="Batch public code"
+            className="w-full min-w-0 bg-transparent text-body-md text-on-surface placeholder:text-on-surface-variant focus:outline-none"
+          />
+          <button type="submit" className="sr-only">Verify</button>
+        </form>
         <div className="flex shrink-0 gap-3">
-          <ButtonLink href="/verify" variant="primary" icon="qr_code_scanner">Scan</ButtonLink>
+          <ButtonLink href="/scan" variant="primary" icon="qr_code_scanner">Scan</ButtonLink>
           <ButtonLink href="/batches" variant="outline">Browse all</ButtonLink>
         </div>
       </div>
@@ -63,7 +84,7 @@ export default function TraceabilityPage() {
                 <p className="mt-1.5 text-metadata-sm leading-relaxed text-on-surface-variant">{j.desc}</p>
                 <div className="mt-auto pt-3 text-metadata-sm font-medium text-tertiary">
                   <span className="inline-flex items-center gap-1">
-                    <Icon name="verified" className="text-[14px]" /> anchored
+                    <Icon name="verified" className="text-[14px]" /> recorded
                   </span>
                 </div>
               </div>
@@ -89,13 +110,13 @@ export default function TraceabilityPage() {
           {
             icon: "link",
             title: "Anchor on-chain",
-            body: "Records are bundle-hashed into a Merkle root and anchored to Polygon within 60 seconds of the event.",
+            body: "Records are bundle-hashed into a Merkle root and anchored to the ledger — see Blockchain Proofs for live anchor status.",
             tone: "tertiary" as const,
           },
           {
             icon: "qr_code_scanner",
             title: "Verify anywhere",
-            body: "Scan the label — the app recomputes the hash chain and proves the record is unaltered since harvest.",
+            body: "Scan the label — the app shows the full recorded journey with quality and integrity evidence.",
             tone: "error" as const,
           },
         ].map((s) => (

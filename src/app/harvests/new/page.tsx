@@ -23,7 +23,7 @@ export default function HarvestNewPage() {
   const router = useRouter();
   const [values, setValues] = useState<Record<string, string>>({ honeyType: "MUSTARD" });
   const [submitting, setSubmitting] = useState(false);
-  const [created, setCreated] = useState<{ code: string } | null>(null);
+  const [created, setCreated] = useState<{ code: string; summary: string } | null>(null);
 
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setValues((v) => ({ ...v, [k]: e.target.value }));
@@ -31,6 +31,15 @@ export default function HarvestNewPage() {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
+    const summary = [
+      values.hiveCode?.trim(),
+      values.farm?.trim(),
+      values.region?.trim(),
+      values.quantity?.trim() ? `${values.quantity.trim()} kg` : "",
+      values.date?.trim(),
+    ]
+      .filter(Boolean)
+      .join(" · ");
     try {
       const res = await fetch("/api/batches", {
         method: "POST",
@@ -44,19 +53,19 @@ export default function HarvestNewPage() {
       });
       if (res.ok) {
         const body = (await res.json()) as { data?: { publicCode?: string } };
-        setCreated({ code: body?.data?.publicCode ?? "" });
+        setCreated({ code: body?.data?.publicCode ?? "", summary });
       } else {
         const body = (await res.json().catch(() => null)) as { error?: { code?: string } } | null;
         if (body?.error?.code === "HARVEST_NOT_FOUND") {
           // No linked harvest record locally → demo success.
           const seed = Date.now().toString(36).slice(-4).toUpperCase();
-          setCreated({ code: `HQ-DEMO-2026-${seed}` });
+          setCreated({ code: `HQ-DEMO-2026-${seed}`, summary });
         } else {
-          setCreated({ code: "" });
+          setCreated({ code: "", summary });
         }
       }
     } catch {
-      setCreated({ code: "" });
+      setCreated({ code: "", summary });
     }
     setSubmitting(false);
   }
@@ -74,9 +83,14 @@ export default function HarvestNewPage() {
             </h1>
             <p className="mt-2 text-body-md text-on-surface-variant">
               {created.code
-                ? `Batch label ${created.code} has been queued for anchoring. Report the code to the apiary manager for sealing.`
+                ? `Batch label ${created.code} has been registered and added to the traceability ledger.`
                 : "The backend requires a linked harvest record to open a live batch. In demo mode the form accepted your entry."}
             </p>
+            {created.summary && (
+              <p className="mt-2 text-metadata-sm text-on-surface-variant">
+                Captured: <span className="font-medium text-on-surface">{created.summary}</span>
+              </p>
+            )}
             {created.code && (
               <div className="mt-6 text-left">
                 <BatchQrDownloader
@@ -112,7 +126,7 @@ export default function HarvestNewPage() {
         <div className="mb-8">
           <h1 className="text-headline-lg tracking-tight text-on-surface">Harvest Registration</h1>
           <p className="mt-1 text-body-md text-on-surface-variant">
-            Capture the extraction event at source — a signed, geolocated record that anchors the batch&apos;s first block.
+            Capture the extraction event at source — a signed, geolocated record that starts the batch&apos;s traceability trail.
           </p>
         </div>
 
@@ -159,7 +173,7 @@ export default function HarvestNewPage() {
           <div className="flex flex-col items-center justify-between gap-4 rounded-xl bg-secondary-container/20 p-4 sm:flex-row">
             <p className="flex items-center gap-2 text-metadata-sm text-on-secondary-container">
               <Icon name="verified_user" className="text-[18px]" />
-              Submitting flags this event for on-chain anchoring within 60s.
+              Submitting records this event in the batch ledger.
             </p>
             <button
               type="submit"

@@ -14,20 +14,20 @@ export default function NotFound() {
           This page drifted off the hive
         </h1>
         <p className="mt-2 max-w-sm text-body-md text-on-surface-variant">
-          The route you followed has no batch — check the label code or head back to the colony dashboard.
+          The route you followed has no batch — check the label code or head back to the hive.
         </p>
         <div className="mt-8 flex items-center gap-3">
           <Link
-            href="/dashboard"
-            className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-body-md font-medium text-on-primary shadow-sm transition-all active:scale-[0.98]"
+            href="/"
+            className="inline-flex items-center gap-2 rounded-2xl bg-primary px-5 py-2.5 text-body-md font-medium text-on-primary shadow-sm transition-all active:scale-[0.98]"
           >
-            <Icon name="dashboard" className="text-[18px]" /> Back to dashboard
+            <Icon name="hive" fill className="text-[18px]" /> Back to HiveTrace
           </Link>
           <Link
-            href="/verify"
-            className="inline-flex items-center gap-2 rounded-xl border border-outline-variant px-5 py-2.5 text-body-md font-medium text-on-surface transition-colors hover:bg-surface-container-low"
+            href="/scan"
+            className="inline-flex items-center gap-2 rounded-2xl border border-outline-variant px-5 py-2.5 text-body-md font-medium text-on-surface transition-colors hover:bg-surface-container-low"
           >
-            <Icon name="qr_code_scanner" className="text-[18px]" /> Scan a label
+            <Icon name="qr_code_scanner" className="text-[18px]" /> Scan & Verify
           </Link>
         </div>
 

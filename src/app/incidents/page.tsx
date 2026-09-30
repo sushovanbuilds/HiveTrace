@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { AppShell } from "@/components/app-shell";
 import { Icon, SectionLabel } from "@/components/icons";
-import { Card, Pill, EmptyState } from "@/components/ui";
+import { Card, Pill, EmptyState, ButtonLink } from "@/components/ui";
 import { db } from "@/lib/db";
+import { getDemoIncidentRows } from "@/lib/incidents/demo-incidents";
 
 export const dynamic = "force-dynamic";
 
@@ -29,14 +30,6 @@ const STATUS_TONE: Record<string, "error" | "warn" | "tertiary" | "surface"> = {
   RESOLVED: "tertiary",
   CLOSED: "surface",
 };
-
-const DEMO_INCIDENTS: IncidentRow[] = [
-  { id: "inc_1084", title: "Duplicate QR & Custody Gap", description: "The same label code was scanned from 3 networks within 40 minutes across two states.", severity: "HIGH", status: "INVESTIGATING", batchCount: 3, alertCount: 12, createdAt: new Date("2026-08-29T08:12:00") },
-  { id: "inc_1082", title: "Unverified Node Transfer", description: "Custody transfer accepted with no prior collection event recorded for the batch.", severity: "HIGH", status: "OPEN", batchCount: 1, alertCount: 5, createdAt: new Date("2026-08-28T17:40:00") },
-  { id: "inc_047", title: "Temperature Excursion During Transit", description: "Transit temperature exceeded 38°C for 4 hours on the Kolkata cold-chain run.", severity: "MEDIUM", status: "OPEN", batchCount: 1, alertCount: 18, createdAt: new Date("2026-08-27T06:15:00") },
-  { id: "inc_1081", title: "Anomalous Growth in Estimated Production", description: "Hive E-880 reported 3× expected volume with no corresponding floral bloom data.", severity: "MEDIUM", status: "RESOLVED", batchCount: 2, alertCount: 6, createdAt: new Date("2026-08-20T10:00:00") },
-  { id: "inc_044", title: "Packaging Reuse Across Vendors", description: "Recurring supplier contract sealed with reused packaging jute batch identical hash.", severity: "CRITICAL", status: "CLOSED", batchCount: 8, alertCount: 8, createdAt: new Date("2026-08-11T09:30:00") },
-];
 
 async function loadIncidents(): Promise<{ incidents: IncidentRow[]; openCount: number } | null> {
   try {
@@ -65,8 +58,9 @@ async function loadIncidents(): Promise<{ incidents: IncidentRow[]; openCount: n
 
 export default async function IncidentsPage() {
   const data = await loadIncidents();
-  const incidents = data?.incidents.length ? data.incidents : DEMO_INCIDENTS;
-  const openCount = data?.openCount ?? DEMO_INCIDENTS.filter((i) => i.status === "OPEN" || i.status === "INVESTIGATING").length;
+  const isDemo = !data?.incidents.length;
+  const incidents = isDemo ? getDemoIncidentRows() : data.incidents;
+  const openCount = data?.openCount ?? getDemoIncidentRows().filter((i) => i.status === "OPEN" || i.status === "INVESTIGATING").length;
 
   return (
     <AppShell>
@@ -82,12 +76,21 @@ export default async function IncidentsPage() {
             <span className="h-2 w-2 rounded-full bg-error animate-pulse" />
             {openCount} open
           </span>
-          <button className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-metadata-sm font-medium text-on-primary shadow-sm transition-all active:scale-[0.98]">
-            <Icon name="add" className="text-[18px]" />
+          <ButtonLink href="/risk-center" variant="primary" icon="add" className="px-4 py-2 text-metadata-sm">
             New Case
-          </button>
+          </ButtonLink>
         </div>
       </div>
+
+      {isDemo && (
+        <div className="mb-6 flex max-w-3xl items-start gap-3 rounded-xl border border-outline-variant/30 bg-surface-container-low px-4 py-3">
+          <Icon name="info" className="mt-0.5 text-[18px] text-on-surface-variant" />
+          <p className="text-metadata-sm text-on-surface-variant">
+            <span className="font-semibold text-on-surface">Sample data.</span> The incident database is unreachable, so
+            these illustrative cases are shown instead of live records.
+          </p>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 xl:grid-cols-3">
         {incidents.map((inc) => (

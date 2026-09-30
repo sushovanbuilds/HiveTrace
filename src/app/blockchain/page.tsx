@@ -17,14 +17,6 @@ type Anchor = {
   anchoredAt: Date | null;
 };
 
-const DEMO_ANCHORS: Anchor[] = [
-  { id: "anch_1", eventType: "CUSTODY_TRANSFER", txHash: "0x7a1c0d2f9e41b8f0", blockNumber: 5_241_112, chain: "POLYGON_TESTNET", status: "ANCHORED", batchPublicCode: "WB-PUR-2026-001", anchoredAt: new Date("2026-08-29T08:02:00") },
-  { id: "anch_2", eventType: "QUALITY_TEST", txHash: "0x9e11ab44c02d71aa", blockNumber: 5_241_111, chain: "POLYGON_TESTNET", status: "ANCHORED", batchPublicCode: "WB-PUR-2026-001", anchoredAt: new Date("2026-08-29T07:58:00") },
-  { id: "anch_3", eventType: "HARVEST", txHash: "0x2b9c003177fa902e", blockNumber: 5_241_110, chain: "POLYGON_TESTNET", status: "ANCHORED", batchPublicCode: "WB-PUR-2026-001", anchoredAt: new Date("2026-08-29T07:44:00") },
-  { id: "anch_4", eventType: "SCAN_VERIFY", txHash: "0xc4d81fa e90ab12cd".replace(" ", ""), blockNumber: 5_241_102, chain: "POLYGON_TESTNET", status: "ANCHORED", batchPublicCode: "WB-KUL-2026-004", anchoredAt: new Date("2026-08-28T22:15:00") },
-  { id: "anch_5", eventType: "SUPPLIER_CERT", txHash: null, blockNumber: null, chain: "LOCAL_FABRIC", status: "PENDING", batchPublicCode: "HP-KUL-2026-005", anchoredAt: null },
-];
-
 async function loadAnchors(): Promise<Anchor[] | null> {
   try {
     const anchors = await db.blockchainAnchor.findMany({
@@ -62,7 +54,37 @@ const ChainIcons: Record<string, string> = {
 };
 
 export default async function BlockchainPage() {
-  const anchors = (await loadAnchors()) ?? DEMO_ANCHORS;
+  const anchors = await loadAnchors();
+
+  if (anchors === null) {
+    // Never render placeholder chain data: invented tx hashes presented as
+    // real provenance evidence would be fabrication in a traceability product.
+    return (
+      <AppShell>
+        <div className="mb-8">
+          <h1 className="text-headline-lg tracking-tight text-on-surface">Blockchain Proofs</h1>
+          <p className="mt-1 max-w-2xl text-body-md text-on-surface-variant">
+            Every trusted event is bundle-hashed and anchored to a public chain — anyone can verify the record with the batch label.
+          </p>
+          <p className="mt-2 flex max-w-2xl items-center gap-1.5 text-metadata-sm text-on-surface-variant">
+            <Icon name="info" className="text-[14px]" />
+            Network status and the Merkle root below are illustrative demo values. The anchor ledger table reflects real database records.
+          </p>
+        </div>
+        <div className="flex max-w-2xl items-start gap-3 rounded-xl bg-error-container/60 p-5 text-on-error-container">
+          <Icon name="error" className="mt-0.5 text-[22px]" />
+          <div>
+            <p className="text-body-md font-semibold">Anchor ledger unavailable</p>
+            <p className="mt-1 text-body-md">
+              We couldn&apos;t load the anchor ledger from the database. No entries are shown
+              rather than placeholder data — please try again shortly.
+            </p>
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
+
   const anchored = anchors.filter((a) => a.status === "ANCHORED").length;
   const pending = anchors.filter((a) => a.status === "PENDING").length;
   const root = "0x8f3d" + "ab7c21e94d50f0812c6b3a97d4e5c" + "0fa9e22174b8cd03a6f9ba57d2c148e6630a";
@@ -82,7 +104,7 @@ export default async function BlockchainPage() {
           { icon: "link", label: "Total Anchors", value: anchors.length, cls: "" },
           { icon: "verified_user", label: "Anchored", value: anchored, cls: "text-tertiary" },
           { icon: "hourglass_top", label: "Pending", value: pending, cls: "text-primary" },
-          { icon: "memory", label: "Anchor SLA", value: "150ms", cls: "" },
+          { icon: "memory", label: "Anchor SLA", value: "—", cls: "" },
         ].map((m) => (
           <div key={m.label} className="metric-card rounded-xl p-5 transition-shadow hover:shadow-md">
             <p className="mb-4 flex items-center gap-2 text-label-caps uppercase tracking-wider text-on-surface-variant">
@@ -135,7 +157,7 @@ export default async function BlockchainPage() {
         <div className="relative max-w-2xl">
           <p className="flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-primary-container">
             <Icon name="identity_platform" className="text-[16px]" />
-            Current Merkle Root
+            Demo Merkle Root
           </p>
           <div className="mt-3">
             <CopyField value={root} />

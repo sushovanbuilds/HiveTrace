@@ -1,273 +1,447 @@
+import { ClientPageLoader } from "@/components/page-loader";
 import Link from "next/link";
+import { qrToSvg } from "@/lib/qr/svg";
 import { Icon } from "@/components/icons";
 import { HexOrbit } from "@/components/hex-orbit";
+import { Decode } from "@/components/threeui/Decode";
+import {
+  ButtonLink,
+  Container,
+  Eyebrow,
+  Pill,
+  SectionHeading,
+} from "@/components/ui";
 
-export default function LandingPage() {
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+const DEMO_BATCH = "HC-2026-00124";
+
+/* ── Minimal public nav: wordmark · How It Works · HIVEOS · [Scan & Verify] ── */
+function PublicNav() {
   return (
-    <div className="relative flex min-h-screen flex-col overflow-x-hidden bg-background text-on-surface">
-      <div className="pointer-events-none absolute -top-72 -right-64 h-[1000px] w-[1000px] rounded-full bg-[radial-gradient(circle,rgba(255,184,0,0.10)_0%,rgba(255,184,0,0)_60%)]" />
-
-      {/* Top navigation */}
-      <header className="fixed top-0 z-50 hidden w-full border-b border-outline-variant/10 bg-white/60 backdrop-blur-xl md:block">
-        <div className="mx-auto flex w-full max-w-[1200px] items-center justify-between px-[24px] py-2 md:px-[64px]">
-          <div className="flex items-center gap-8">
-            <span className="font-headline-md text-headline-md font-bold tracking-tight text-primary">
-              HiveTrace
+    <header className="fixed inset-x-0 top-0 z-50 border-b border-bark-950/8 bg-cream/80 backdrop-blur-xl">
+      <Container>
+        <div className="flex h-16 items-center justify-between">
+          <Link href="/" className="flex items-center gap-2">
+            <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-honey text-honey-ink">
+              <Icon name="hive" fill className="text-[20px]" />
             </span>
-            <nav className="ml-8 hidden gap-8 md:flex">
-              {["Trace", "Platform", "About"].map((l) => (
-                <a
-                  key={l}
-                  href={l === "Trace" ? "/verify" : l === "Platform" ? "/dashboard" : "#about"}
-                  className="text-metadata-sm font-medium text-on-surface transition-colors hover:text-primary"
-                >
-                  {l}
-                </a>
-              ))}
-            </nav>
-          </div>
-          <Link
-            href="/verify"
-            className="inline-flex items-center gap-2 rounded-lg bg-[#1a1a1a] px-5 py-2 text-metadata-sm text-white shadow-[0_1px_2px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.1)] transition-all duration-200 hover:-translate-y-px hover:bg-[#2a2a2a]"
-          >
-            <Icon name="verified" fill className="text-[18px] text-primary-container" />
-            Verify Batch
+            <span className="text-heading-sm font-bold tracking-tight text-bark-950">
+              HIVETRACE
+            </span>
           </Link>
+          <nav className="hidden items-center gap-8 md:flex">
+            <Link href="#how-it-works" className="py-2 text-nav text-bark-700 transition-colors hover:text-bark-950">
+              How It Works
+            </Link>
+            <Link href="/hiveos" className="py-2 text-nav text-bark-700 transition-colors hover:text-bark-950">
+              HIVEOS
+            </Link>
+          </nav>
+          <ButtonLink href="/scan" variant="cta" size="sm" icon="qr_code_scanner">
+            Scan &amp; Verify
+          </ButtonLink>
         </div>
-      </header>
+      </Container>
+    </header>
+  );
+}
 
-      {/* Mobile top bar */}
-      <header className="sticky top-0 z-40 flex w-full items-center justify-between border-b border-outline-variant/10 bg-white/60 px-5 py-3 backdrop-blur-xl md:hidden">
-        <span className="font-headline-md text-headline-md font-bold tracking-tight text-primary">HiveTrace</span>
-        <Link href="/verify" className="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-[#1a1a1a] px-3 text-metadata-sm font-medium text-white">
-          <Icon name="verified" fill className="text-[17px] text-primary-container" />
-          Verify
-        </Link>
-      </header>
-
-      <main className="mx-auto flex w-full max-w-[1200px] flex-col items-center px-5 pb-12 pt-12 md:px-[64px] md:pb-[64px] md:pt-40">
-        {/* Hero */}
-        <section className="relative z-10 flex w-full flex-col items-center gap-8 md:min-h-[600px] lg:flex-row">
-          <div className="z-20 flex w-full flex-col gap-6 text-left lg:w-1/2">
-            <h1 className="text-[40px] font-bold leading-[1.1] tracking-tighter text-on-surface md:text-[72px] md:leading-[1]">
-              Sunderbans to&nbsp;Home,{" "}
-              <span className="relative inline-block text-primary">
-                Verified.
-                <svg
-                  className="absolute -bottom-2 left-0 w-full"
-                  viewBox="0 0 400 14"
-                  fill="none"
-                  preserveAspectRatio="none"
-                >
-                  <path
-                    d="M3 11C110 3 220 3 397 8"
-                    stroke="#FFB800"
-                    strokeWidth="5"
-                    strokeLinecap="round"
-                  />
-                </svg>
-              </span>
-            </h1>
-            <p className="max-w-xl text-body-lg text-on-surface-variant">
-              Trace every step of your honey&apos;s journey from the mangrove forests of West
-              Bengal with trusted provenance, quality evidence and intelligent supply-chain
-              visibility.
+/* ── 1. HERO ─────────────────────────────────────────────────── */
+function Hero() {
+  return (
+    <section className="relative overflow-hidden pt-16">
+      <div className="pointer-events-none absolute -top-40 right-[-10%] h-[560px] w-[560px] rounded-full bg-honey/10 blur-3xl" />
+      <Container>
+        <div className="grid items-center gap-12 py-16 md:py-24 lg:grid-cols-2 lg:gap-8">
+          <div className="flex flex-col items-start gap-6">
+            <Eyebrow icon="verified">Honey traceability, verified</Eyebrow>
+            {/* ThreeUI TextAnimationCollection (article-headings variant): one
+                restrained decode reveal on the brand statement. DOM text over
+                the HexOrbit canvas — no second WebGL scene. */}
+            <Decode as="h1" className="text-display text-bark-950 text-balance">
+              Know where your honey came from.
+            </Decode>
+            <p className="max-w-measure text-body-lg text-on-surface-variant">
+              From hive to home, every verified batch has a story.
             </p>
-            <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:gap-4">
-              <Link
-                href="/verify"
-                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-[#1a1a1a] px-6 py-3 text-metadata-sm font-medium text-white shadow-[0_1px_2px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.1)] transition-all duration-200 hover:-translate-y-px hover:bg-[#2a2a2a]"
-              >
-                <Icon name="verified" fill className="text-primary-container" />
-                Verify Batch
-              </Link>
-              <Link
-                href="/dashboard"
-                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-black/10 bg-white/50 px-6 py-3 text-metadata-sm font-medium text-on-surface backdrop-blur transition-all duration-200 hover:-translate-y-px hover:bg-white/80"
-              >
-                Explore Platform
-                <Icon name="arrow_forward" className="text-[16px]" />
-              </Link>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <ButtonLink href="/scan" variant="cta" size="lg" icon="qr_code_scanner">
+                Scan &amp; Verify
+              </ButtonLink>
+              <ButtonLink href="/hiveos" variant="hiveos" size="lg" iconRight="arrow_forward">
+                Open HIVEOS
+              </ButtonLink>
             </div>
+            <p className="text-caption text-on-surface-variant">
+              No account needed — point your camera at any HiveTrace QR.
+            </p>
           </div>
 
-          {/* Visual / animation area */}
-          <div className="relative mt-4 flex h-[320px] w-full items-center justify-center sm:mt-10 sm:h-[420px] lg:mt-0 lg:h-[600px] lg:w-1/2">
-            <div className="absolute inset-0 -z-10 scale-150 rounded-full bg-gradient-to-br from-primary-container/10 to-transparent blur-3xl" />
+          {/* Hero visual: honeycomb field + live verification chip */}
+          <div className="relative h-[320px] sm:h-[420px] lg:h-[560px]">
             <div className="absolute inset-0">
               <HexOrbit />
             </div>
-
-            {/* Floating glass panel: origin */}
-            <div className="glass-panel absolute right-0 top-6 flex max-w-[calc(100%-1rem)] animate-[floatY_6s_ease-in-out_infinite] items-center gap-3 rounded-xl p-3 sm:right-2 sm:top-16 sm:p-4 lg:right-6 lg:top-20">
-              <span className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-tertiary/20 bg-tertiary/10">
-                <Icon name="verified" fill className="text-[16px] text-tertiary" />
+            <div className="glass-panel absolute right-2 top-8 flex items-center gap-3 rounded-2xl p-4 sm:right-6">
+              <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-leaf/10">
+                <Icon name="verified" fill className="text-[22px] text-leaf" />
               </span>
               <div>
-                <p className="text-label-caps uppercase tracking-[0.05em] text-on-surface-variant/80">Origin</p>
-                <p className="text-metadata-sm font-semibold tracking-tight text-on-surface">
-                  Sundarbans Reserve Forest
+                <p className="text-eyebrow uppercase text-on-surface-variant">Batch verified</p>
+                <p className="hash-mono text-metadata font-semibold text-bark-950">
+                  {DEMO_BATCH}
                 </p>
               </div>
             </div>
-
-            {/* Floating glass panel: anchor */}
-            <div className="glass-panel absolute bottom-5 left-0 flex max-w-[calc(100%-1rem)] animate-[floatY_7s_ease-in-out_infinite_alternate] items-start gap-3 rounded-xl p-3 sm:bottom-16 sm:left-2 sm:max-w-[280px] sm:p-4 lg:bottom-20 lg:left-6">
-              <Icon name="security" fill className="mt-0.5 text-lg text-primary" />
+            <div className="glass-panel absolute bottom-8 left-2 flex items-center gap-3 rounded-2xl p-4 sm:left-6">
+              <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-honey/15">
+                <Icon name="science" className="text-[22px] text-honey-deep" />
+              </span>
               <div>
-                <p className="text-metadata-sm font-semibold tracking-tight text-on-surface">
-                  Cryptographic Anchor
-                </p>
-                <p className="mt-1 text-body-md text-sm leading-relaxed text-on-surface-variant">
-                  Batch #WB-24-908 events cryptographically secured on-chain.
+                <p className="text-eyebrow uppercase text-on-surface-variant">Laboratory evidence</p>
+                <p className="text-metadata font-semibold text-bark-950">
+                  12 parameters tested
                 </p>
               </div>
             </div>
           </div>
-        </section>
+        </div>
+      </Container>
+    </section>
+  );
+}
 
-        {/* Features — bento grid */}
-        <section className="mt-12 flex w-full flex-col gap-12 pt-8 md:mt-16 md:gap-16 md:pt-16">
-          <div className="mx-auto w-full max-w-2xl text-center">
-            <h2 className="text-[32px] font-bold tracking-tight text-on-surface md:text-headline-lg">
-              The Standard of Purity
-            </h2>
-            <p className="mt-3 text-body-md text-on-surface-variant">
-              Enterprise-grade infrastructure delivering absolute certainty.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-            {/* Card 1 — End-to-End Traceability */}
-            <div className="group relative col-span-1 flex flex-col justify-between overflow-hidden rounded-2xl border border-black/5 bg-white/50 p-8 backdrop-blur-sm transition-all duration-300 hover:shadow-[0_8px_30px_rgba(0,0,0,0.04)] lg:col-span-8">
-              <div className="pointer-events-none absolute -mr-20 -mt-20 right-0 top-0 h-64 w-64 rounded-full bg-primary-container/10 blur-3xl transition-colors group-hover:bg-primary-container/20" />
-              <div className="relative z-10">
-                <div className="mb-6 inline-flex h-10 w-10 items-center justify-center rounded-lg border border-black/5 bg-surface shadow-sm">
-                  <Icon name="route" className="text-xl text-primary" />
-                </div>
-                <h3 className="mb-2 font-headline-md text-headline-md tracking-tight text-on-surface">
-                  End-to-End Traceability
-                </h3>
-                <p className="max-w-md text-body-md text-on-surface-variant">
-                  From the exact apiary location in Gosaba to the final jar, every movement is
-                  tracked and immutable.
-                </p>
-              </div>
-              <div className="relative z-10 mt-8 flex h-32 w-full items-center justify-center overflow-hidden rounded-xl border border-black/5 bg-surface/50 backdrop-blur-md">
-                <div className="absolute top-1/2 h-px w-full -translate-y-1/2 bg-black/10" />
-                <div className="absolute top-1/2 flex w-3/4 -translate-y-1/2 justify-between">
-                  <span className="h-2.5 w-2.5 rounded-full bg-primary shadow-[0_0_8px_rgba(124,88,0,0.55)]" />
-                  <span className="h-2.5 w-2.5 translate-y-2 rounded-full bg-primary shadow-[0_0_8px_rgba(124,88,0,0.55)]" />
-                  <span className="h-2.5 w-2.5 rounded-full bg-primary shadow-[0_0_8px_rgba(124,88,0,0.55)]" />
-                  <span className="h-2.5 w-2.5 translate-y-1 rounded-full border border-black/20 bg-surface-dim" />
-                  <span className="h-2.5 w-2.5 rounded-full border border-black/20 bg-surface-dim" />
-                </div>
-                {["Harvest", "Collection", "Lab", "Processing", "Shipping", "Retail"].map((s, idx) => (
-                  <span
-                    key={s}
-                    className="absolute bottom-2 text-metadata-sm uppercase tracking-[0.09em] text-on-surface-variant/70"
-                    style={{ left: `${10 + idx * 16}%` }}
-                  >
-                    {s}
+/* ── 2. QR VERIFICATION PREVIEW ──────────────────────────────── */
+function QrPreview() {
+  const verifyUrl = `${SITE_URL}/verify/${DEMO_BATCH}`;
+  const qrSvg = qrToSvg(verifyUrl, {
+    dark: "#2a1e05",
+    light: "#ffffff",
+    pixelSize: 208,
+    moduleRadius: 0.18,
+    title: `Scan to verify batch ${DEMO_BATCH}`,
+  });
+  const steps = [
+    { icon: "qr_code_scanner", title: "Scan the QR", body: "Every jar carries a HiveTrace code." },
+    { icon: "verified", title: "See the verdict", body: "Verified, with the evidence behind it." },
+    { icon: "route", title: "Follow the journey", body: "Hive to home, step by step." },
+  ];
+  return (
+    <section id="scan" className="bg-cream-deep/60">
+      <Container>
+        <div className="grid items-center gap-12 py-section lg:grid-cols-2">
+          <div>
+            <SectionHeading
+              eyebrow="Try it now"
+              title="Scan it. See the story."
+              lede="This is a real code. Point your phone camera at it — you'll land on a live verification result for a demo batch."
+            />
+            <ol className="mt-8 flex flex-col gap-5">
+              {steps.map((s, i) => (
+                <li key={s.title} className="flex items-start gap-4">
+                  <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-bark-950 text-cream">
+                    <Icon name={s.icon} className="text-[20px]" />
                   </span>
-                ))}
-              </div>
-            </div>
-
-            {/* Card 2 — Verified Quality */}
-            <div className="col-span-1 flex flex-col justify-between rounded-2xl border border-black/5 bg-white/50 p-8 backdrop-blur-sm transition-all duration-300 hover:shadow-[0_8px_30px_rgba(0,0,0,0.04)] lg:col-span-4">
-              <div>
-                <div className="mb-6 inline-flex h-10 w-10 items-center justify-center rounded-lg border border-tertiary/10 bg-tertiary-container/10 shadow-sm">
-                  <Icon name="science" className="text-xl text-tertiary" />
-                </div>
-                <h3 className="mb-2 font-headline-md text-headline-md tracking-tight text-on-surface">
-                  Verified Quality
-                </h3>
-                <p className="text-body-md text-on-surface-variant">
-                  FSSAI lab results and floral composition embedded directly into the digital
-                  passport.
-                </p>
-              </div>
-              <div className="mt-8 flex gap-2">
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-tertiary/20 bg-tertiary/10 px-3 py-1 text-label-caps text-tertiary">
-                  <span className="h-1.5 w-1.5 rounded-full bg-tertiary" />
-                  Lab Tested
-                </span>
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-outline-variant/40 bg-surface px-3 py-1 text-label-caps text-on-surface-variant">
-                  <span className="h-1.5 w-1.5 rounded-full bg-secondary" />
-                  12 Parameters
-                </span>
-              </div>
-            </div>
-
-            {/* Card 3 — Smart Beekeeping */}
-            <div className="col-span-1 flex flex-col justify-between rounded-2xl border border-black/5 bg-white/50 p-8 backdrop-blur-sm transition-all duration-300 hover:shadow-[0_8px_30px_rgba(0,0,0,0.04)] lg:col-span-5">
-              <div>
-                <div className="mb-6 inline-flex h-10 w-10 items-center justify-center rounded-lg border border-black/5 bg-surface shadow-sm">
-                  <Icon name="sensors" className="text-xl text-secondary" />
-                </div>
-                <h3 className="mb-2 font-headline-md text-headline-md tracking-tight text-on-surface">
-                  Smart Beekeeping
-                </h3>
-                <p className="text-body-md text-on-surface-variant">
-                  IoT integration monitors hive health, temperature and nectar flow in real time
-                  across Bengal apiaries.
-                </p>
-              </div>
-            </div>
-
-            {/* Card 4 — Trusted Provenance */}
-            <div className="relative col-span-1 flex flex-col justify-between overflow-hidden rounded-2xl border border-black/5 bg-white/50 p-8 backdrop-blur-sm transition-all duration-300 hover:shadow-[0_8px_30px_rgba(0,0,0,0.04)] lg:col-span-7">
-              <div className="relative z-10">
-                <div className="mb-6 inline-flex h-10 w-10 items-center justify-center rounded-lg border border-black/5 bg-surface shadow-sm">
-                  <Icon name="verified" className="text-xl text-primary" />
-                </div>
-                <h3 className="mb-2 font-headline-md text-headline-md tracking-tight text-on-surface">
-                  Trusted Provenance
-                </h3>
-                <p className="max-w-md text-body-md text-on-surface-variant">
-                  Cryptographic anchoring ensures that claims of origin cannot be tampered with —
-                  on-chain integrity for every batch log event, lab result and custody transfer.
-                </p>
-              </div>
-              <div className="pointer-events-none absolute bottom-0 right-0 translate-x-1/4 translate-y-1/4 opacity-5">
-                <Icon name="fingerprint" className="text-[200px]" />
-              </div>
+                  <div>
+                    <p className="text-body-md font-semibold text-bark-950">
+                      <span className="mr-2 text-caption text-honey-deep">{String(i + 1).padStart(2, "0")}</span>
+                      {s.title}
+                    </p>
+                    <p className="mt-0.5 text-body-sm text-on-surface-variant">{s.body}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+            <div className="mt-8">
+              <ButtonLink href="/scan" variant="outline" icon="qr_code_scanner">
+                Open the scanner
+              </ButtonLink>
             </div>
           </div>
-        </section>
-      </main>
+          <div className="flex justify-center">
+            <div className="rounded-3xl bg-cream-raised p-8 shadow-lift card-border">
+              <div
+                className="overflow-hidden rounded-2xl"
+                dangerouslySetInnerHTML={{ __html: qrSvg }}
+                role="img"
+                aria-label={`QR code linking to the verification page for batch ${DEMO_BATCH}`}
+              />
+              <p className="hash-mono mt-4 text-center text-metadata text-on-surface-variant">
+                {DEMO_BATCH} · demo
+              </p>
+            </div>
+          </div>
+        </div>
+      </Container>
+    </section>
+  );
+}
 
-      {/* Footer */}
-      <footer id="about" className="mx-auto mt-12 flex w-full max-w-[1200px] flex-col items-start justify-between border-t border-black/5 px-5 py-12 md:mt-16 md:flex-row md:px-[64px] md:py-[64px]">
-        <div className="mb-6 flex flex-col gap-2 md:mb-0">
-          <span className="font-headline-md text-headline-md font-bold tracking-tight text-primary">
-            HiveTrace
-          </span>
-          <p className="max-w-xs text-metadata-sm text-secondary">
-            © {new Date().getFullYear()} HiveTrace India. Enterprise-grade traceability for the
-            world&apos;s finest honey.
+/* ── 3. TRACEABILITY JOURNEY ─────────────────────────────────── */
+const JOURNEY = [
+  { icon: "hive", label: "Hive", body: "Registered apiary, known coordinates." },
+  { icon: "agriculture", label: "Harvest", body: "Date, keeper, floral source." },
+  { icon: "inventory_2", label: "Batch", body: "One identity, sealed at origin." },
+  { icon: "science", label: "Laboratory", body: "Independent purity testing." },
+  { icon: "factory", label: "Processing", body: "Extraction and packing logged." },
+  { icon: "local_shipping", label: "Distribution", body: "Custody, step by step." },
+  { icon: "home", label: "Consumer", body: "You — scanning this page." },
+];
+
+function Journey() {
+  return (
+    <section id="how-it-works">
+      <Container>
+        <div className="py-section">
+          <SectionHeading
+            align="center"
+            eyebrow="How it works"
+            title={<Decode as="span">One batch. Seven chapters.</Decode>}
+            lede="Every verified jar carries the same journey — recorded once, at the moment it happens, and sealed against tampering."
+          />
+          {/* 7 chapters in a 2-col (mobile) or 4-col (tablet) grid always leaves
+              exactly one empty cell. The final "Consumer — you" chapter spans it
+              so the row never ends in a hole; on the 7-col desktop grid it
+              returns to a single cell. */}
+          <ol className="mt-12 grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-7">
+            {JOURNEY.map((s, i) => (
+              <li
+                key={s.label}
+                className="relative flex flex-col items-center gap-3 rounded-2xl bg-cream-raised p-5 text-center card-border last:col-span-2 lg:last:col-span-1"
+              >
+                <span className="text-eyebrow text-honey-deep">{String(i + 1).padStart(2, "0")}</span>
+                <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-honey/15 text-honey-deep">
+                  <Icon name={s.icon} className="text-[24px]" />
+                </span>
+                <p className="text-body-md font-semibold text-bark-950">{s.label}</p>
+                <p className="text-caption text-on-surface-variant">{s.body}</p>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </Container>
+    </section>
+  );
+}
+
+/* ── 4. BATCH VERIFICATION (demo) ────────────────────────────── */
+function BatchVerification() {
+  return (
+    <section id="batch" className="bg-cream-deep/60">
+      <Container>
+        <div className="py-section">
+          <SectionHeading
+            eyebrow="Proof, not promises"
+            title="A verification result, up close."
+            lede="This is what a consumer sees after scanning — the batch, its hive, and the laboratory evidence behind the verdict."
+          />
+          <div className="mx-auto mt-10 max-w-2xl rounded-3xl bg-cream-raised p-6 shadow-lift card-border sm:p-8">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-leaf/10">
+                  <Icon name="verified" fill className="text-[26px] text-leaf" />
+                </span>
+                <div>
+                  <p className="text-heading-md text-bark-950">Verified batch</p>
+                  <p className="text-caption text-on-surface-variant">Mustard honey · Purulia, West Bengal</p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Pill tone="surface">Demo data</Pill>
+                <Pill tone="tertiary" dot="bg-tertiary">Low risk</Pill>
+              </div>
+            </div>
+            <dl className="mt-6 grid grid-cols-1 gap-px overflow-hidden rounded-2xl bg-bark-950/8 sm:grid-cols-3">
+              {[
+                { k: "Hive", v: "HIVE-A014" },
+                { k: "Batch", v: DEMO_BATCH },
+                { k: "Laboratory report", v: "LAB-2026-441" },
+              ].map((row) => (
+                <div key={row.k} className="bg-cream-raised px-5 py-4">
+                  <dt className="text-eyebrow uppercase text-on-surface-variant">{row.k}</dt>
+                  <dd className="hash-mono mt-1 text-body-md font-semibold text-bark-950">{row.v}</dd>
+                </div>
+              ))}
+            </dl>
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-caption text-on-surface-variant">
+                Laboratory evidence and the full journey are one tap away.
+              </p>
+              <ButtonLink href={`/verify/${DEMO_BATCH}`} variant="cta" iconRight="arrow_forward">
+                View full verification
+              </ButtonLink>
+            </div>
+          </div>
+        </div>
+      </Container>
+    </section>
+  );
+}
+
+/* ── 5. TRUST / EVIDENCE ─────────────────────────────────────── */
+function Trust() {
+  return (
+    <section id="evidence">
+      <Container>
+        <div className="py-section">
+          <SectionHeading
+            align="center"
+            eyebrow="Why it can be trusted"
+            title="Two kinds of proof."
+            lede="Verification rests on two independent pillars. Neither one works alone — and we don't pretend otherwise."
+          />
+          <div className="mx-auto mt-12 grid max-w-4xl gap-6 md:grid-cols-2">
+            <div className="rounded-3xl bg-cream-raised p-8 card-border">
+              <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-honey/15 text-honey-deep">
+                <Icon name="science" className="text-[26px]" />
+              </span>
+              <h3 className="mt-5 text-heading-lg text-bark-950">Laboratory evidence</h3>
+              <p className="mt-3 text-body-md text-on-surface-variant">
+                Independent labs test what the honey <em>is</em> — purity, composition,
+                floral markers, contaminants. This is the only thing that can speak to
+                quality. A certificate is attached to the batch it tested, nothing else.
+              </p>
+            </div>
+            <div className="rounded-3xl bg-cream-raised p-8 card-border">
+              <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-bark-950/8 text-bark-800">
+                <Icon name="fingerprint" className="text-[26px]" />
+              </span>
+              <h3 className="mt-5 text-heading-lg text-bark-950">Record integrity</h3>
+              <p className="mt-3 text-body-md text-on-surface-variant">
+                Every event — harvest, laboratory result, custody transfer — is written once and
+                sealed with tamper-evident anchoring. Anyone can detect if the story was
+                altered after the fact.
+              </p>
+            </div>
+          </div>
+          <p className="mx-auto mt-8 max-w-2xl text-center text-body-md text-on-surface-variant">
+            An honest distinction: a tamper-evident record proves the story{" "}
+            <strong className="font-semibold text-bark-950">hasn&apos;t changed</strong>.
+            It does not prove the honey is pure —{" "}
+            <strong className="font-semibold text-bark-950">only the lab can do that</strong>.
           </p>
         </div>
-        <nav className="flex flex-col gap-4 opacity-80 transition-opacity hover:opacity-100 md:flex-row md:gap-8">
-          {["Privacy Policy", "Terms of Service", "Supply Chain Transparency", "Contact"].map((l) => (
-            <a
-              key={l}
-              href="#"
-              className="text-metadata-sm text-secondary transition-colors hover:text-primary"
-            >
-              {l}
-            </a>
-          ))}
-        </nav>
-      </footer>
+      </Container>
+    </section>
+  );
+}
 
-      <style>{`
-        @keyframes floatY {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-8px); }
-        }
-      `}</style>
+/* ── 6. HIVEOS — the separate operational system ─────────────── */
+const HIVEOS_FLOW = [
+  { icon: "sensors", label: "Sensors", body: "Hive weight, temperature, humidity." },
+  { icon: "view_in_ar", label: "Digital Twin", body: "A living model of each hive." },
+  { icon: "hub", label: "Context", body: "Weather, flora, season, history." },
+  { icon: "lightbulb", label: "Recommendation", body: "What to check, and why." },
+  { icon: "fact_check", label: "Recheck", body: "Verify the outcome, close the loop." },
+];
+
+function HiveOs() {
+  return (
+    <section id="hiveos" className="bg-bark-950 text-cream">
+      <Container>
+        <div className="py-section">
+          <Eyebrow tone="honey">For producers — a separate system</Eyebrow>
+          <h2 className="mt-3 max-w-measure text-heading-xl text-cream text-balance">
+            HIVEOS. Intelligence before harvest.
+          </h2>
+          <p className="mt-4 max-w-measure text-body-lg text-cream/70">
+            The operational side of HiveTrace — for beekeepers, analysts, processors and
+            distributors. It watches the hives so problems are caught before they reach
+            the jar.
+          </p>
+          {/* 5 cards in a 2-col (mobile) or 3-col (tablet) grid leaves one
+              empty cell — same rule as the journey grid above. */}
+          <ol className="mt-10 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+            {HIVEOS_FLOW.map((s, i) => (
+              <li key={s.label} className="rounded-2xl border border-cream/10 bg-cream/5 p-5 last:col-span-2 lg:last:col-span-1">
+                <span className="text-eyebrow text-honey">{String(i + 1).padStart(2, "0")}</span>
+                <span className="mt-3 flex h-11 w-11 items-center justify-center rounded-xl bg-honey/15 text-honey">
+                  <Icon name={s.icon} className="text-[22px]" />
+                </span>
+                <p className="mt-3 text-body-md font-semibold text-cream">{s.label}</p>
+                <p className="mt-1 text-caption text-cream/60">{s.body}</p>
+              </li>
+            ))}
+          </ol>
+          <div className="mt-10">
+            <ButtonLink href="/hiveos" variant="cta" size="lg" iconRight="arrow_forward">
+              Enter HIVEOS
+            </ButtonLink>
+          </div>
+        </div>
+      </Container>
+    </section>
+  );
+}
+
+/* ── 7. FINAL CTA ────────────────────────────────────────────── */
+function FinalCta() {
+  return (
+    <section>
+      <Container>
+        <div className="flex flex-col items-center gap-6 py-section text-center">
+          <Eyebrow>Start here</Eyebrow>
+          <h2 className="max-w-measure text-heading-xl text-bark-950 text-balance">
+            Every jar has a story. Read it.
+          </h2>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <ButtonLink href="/scan" variant="cta" size="lg" icon="qr_code_scanner">
+              Scan & Verify
+            </ButtonLink>
+            <ButtonLink href="/hiveos" variant="outline" size="lg" iconRight="arrow_forward">
+              Enter HIVEOS
+            </ButtonLink>
+          </div>
+        </div>
+      </Container>
+    </section>
+  );
+}
+
+function Footer() {
+  return (
+    <footer className="border-t border-bark-950/8">
+      <Container>
+        <div className="flex flex-col items-start justify-between gap-6 py-10 md:flex-row md:items-center">
+          <div>
+            <p className="text-heading-sm font-bold tracking-tight text-bark-950">HIVETRACE</p>
+            <p className="mt-1 text-caption text-on-surface-variant">
+              From hive to home, verified. © {new Date().getFullYear()} HiveTrace.
+            </p>
+          </div>
+          <nav className="flex gap-6">
+            {[
+              { label: "How It Works", href: "#how-it-works" },
+              { label: "Verify", href: "/scan" },
+              { label: "HIVEOS", href: "/hiveos" },
+            ].map((l) => (
+              <Link key={l.label} href={l.href} className="py-2 text-nav text-bark-700 transition-colors hover:text-bark-950">
+                {l.label}
+              </Link>
+            ))}
+          </nav>
+        </div>
+      </Container>
+    </footer>
+  );
+}
+
+export default function LandingPage() {
+  return (
+    <ClientPageLoader>
+      <div className="min-h-screen bg-cream text-on-surface">
+      <PublicNav />
+      <main>
+        <Hero />
+        <QrPreview />
+        <Journey />
+        <BatchVerification />
+        <Trust />
+        <HiveOs />
+        <FinalCta />
+      </main>
+      <Footer />
     </div>
+    </ClientPageLoader>
   );
 }

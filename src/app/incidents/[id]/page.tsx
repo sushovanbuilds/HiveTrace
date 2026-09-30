@@ -3,8 +3,10 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { AppShell } from "@/components/app-shell";
 import { Icon } from "@/components/icons";
-import { Pill, ProgressBar, EmptyState } from "@/components/ui";
+import { Pill, ProgressBar } from "@/components/ui";
+import { InvestigationActions } from "./investigation-actions";
 import { db } from "@/lib/db";
+import { getDemoIncidentDetail, type DemoIncidentDetail } from "@/lib/incidents/demo-incidents";
 
 export const dynamic = "force-dynamic";
 
@@ -13,19 +15,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   return { title: `Incident ${id}` };
 }
 
-type IncidentDetail = {
-  id: string;
-  title: string;
-  description: string | null;
-  severity: string;
-  status: string;
-  batchCount: number;
-  createdAt: Date;
-  investigation: { id: string; status: string; findings: string | null; decision: string | null; openedAt: Date } | null;
-  alerts: Array<{ id: string; severity: string; message: string; createdAt: Date }>;
-};
-
-async function loadIncident(id: string): Promise<IncidentDetail | null> {
+async function loadIncident(id: string): Promise<DemoIncidentDetail | null> {
   try {
     const inc = await db.incident.findUnique({
       where: { id },
@@ -47,42 +37,20 @@ async function loadIncident(id: string): Promise<IncidentDetail | null> {
       status: inc.status,
       batchCount: inc.batchCount,
       createdAt: inc.createdAt,
-      investigation: inc.investigation as IncidentDetail["investigation"],
-      alerts: (inc.alerts ?? []) as IncidentDetail["alerts"],
+      investigation: inc.investigation as DemoIncidentDetail["investigation"],
+      alerts: (inc.alerts ?? []) as DemoIncidentDetail["alerts"],
     };
   } catch {
     return null;
   }
 }
-
-const DEMO_DETAIL: IncidentDetail = {
-  id: "inc_047",
-  title: "Temperature Excursion During Transit",
-  description:
-    "Batch WB-PUR-2026-001 recorded a storage temperature above 38°C for 4 consecutive hours during the Purulia → Kolkata cold-chain leg. Sensory analysis flagged caramelisation risk; re-verification requested by downstream lab.",
-  severity: "MEDIUM",
-  status: "INVESTIGATING",
-  batchCount: 1,
-  createdAt: new Date("2026-08-27T06:15:00"),
-  investigation: {
-    id: "inv_047",
-    status: "IN_PROGRESS",
-    findings: "Temperature logger timestamp gap of 7 minutes detected at node BLR-JN3. Physical unit shows no damage; likely logger sleep timeout.",
-    decision: null,
-    openedAt: new Date("2026-08-27T06:20:00"),
-  },
-  alerts: [
-    { id: "al_1", severity: "HIGH", message: "Storage temp > 38°C sustained for 4h", createdAt: new Date("2026-08-27T06:10:00") },
-    { id: "al_2", severity: "HIGH", message: "Sensor heartbeat gap detected (7m)", createdAt: new Date("2026-08-27T06:12:00") },
-    { id: "al_3", severity: "MEDIUM", message: "Reroute suggested — alternate cold-chain node", createdAt: new Date("2026-08-27T06:14:00") },
-    { id: "al_4", severity: "LOW", message: "Downstream lab requested re-verification", createdAt: new Date("2026-08-28T09:00:00") },
-  ],
-};
-
 export default async function IncidentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  let inc: IncidentDetail | null = await loadIncident(id);
-  if (!inc) inc = id === "inc_047" ? DEMO_DETAIL : null;
+  let inc: DemoIncidentDetail | null = await loadIncident(id);
+  // The demo fallback has no database row behind it, so the investigation
+  // actions (which write through the API) stay disabled there.
+  const live = inc !== null;
+  if (!inc) inc = getDemoIncidentDetail(id);
   if (!inc) notFound();
 
   return (
@@ -219,13 +187,18 @@ export default async function IncidentDetailPage({ params }: { params: Promise<{
               </div>
             ) : null}
 
-            <div className="mt-6 flex gap-3">
-              <button className="flex-1 rounded-lg bg-primary-container px-3 py-2 text-metadata-sm font-semibold text-on-primary-container transition-colors hover:bg-[#cba000]">
-                Mark Resolved
-              </button>
-              <button className="rounded-lg border border-primary-container/40 px-3 py-2 text-metadata-sm font-medium text-primary-container">
-                Attach Evidence
-              </button>
+            <div className="mt-6">
+              {live ? (
+                <InvestigationActions
+                  incidentId={inc.id}
+                  status={inc.status}
+                  findings={inc.investigation?.findings ?? null}
+                />
+              ) : (
+                <p className="rounded-lg border border-primary-container/30 p-3 text-metadata-sm text-secondary-fixed-dim">
+                  Demo case — investigation actions are available on live incidents.
+                </p>
+              )}
             </div>
           </div>
 

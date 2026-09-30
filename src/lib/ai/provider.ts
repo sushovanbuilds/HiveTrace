@@ -7,7 +7,7 @@ import type { BaseChatModel } from "@langchain/core/language_models/chat_models"
 import { ChatOpenAI } from "@langchain/openai";
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 
-export type LlmProvider = "openai" | "gemini";
+export type LlmProvider = "openai" | "gemini" | "ollama";
 
 // Minimal structural type so callers (and tests) can inject any chat model
 // without depending on LangChain's full BaseChatModel surface.
@@ -48,18 +48,23 @@ export interface GenerateOptions {
 }
 
 // D1 recommends OpenAI as the initial default (tooling stability); the plan's
-// §13 Gemini default is overridable via LLM_PROVIDER.
+// §13 Gemini default is overridable via LLM_PROVIDER. "ollama" targets a
+// self-hosted Ollama server (e.g. a Cloudflare-tunnelled local model) — no API
+// key, the base URL is the credential.
 function resolveProvider(): LlmProvider {
   const raw = (process.env.LLM_PROVIDER ?? "openai").toLowerCase();
-  return raw === "gemini" || raw === "google" ? "gemini" : "openai";
+  if (raw === "gemini" || raw === "google") return "gemini";
+  if (raw === "ollama") return "ollama";
+  return "openai";
 }
 
 /** The model name for the resolved provider, so an audit row cannot claim a
  *  gpt-4o answer came back when LLM_PROVIDER=gemini served it. */
 export function resolveModelName(provider: LlmProvider = resolveProvider()): string {
-  return provider === "gemini"
-    ? (process.env.GEMINI_MODEL ?? "gemini-1.5-pro")
-    : (process.env.OPENAI_MODEL ?? "gpt-4o");
+  if (provider === "gemini")
+    return process.env.GEMINI_MODEL ?? "gemini-1.5-pro";
+  if (provider === "ollama") return process.env.OLLAMA_MODEL ?? "qwen3:27b";
+  return process.env.OPENAI_MODEL ?? "gpt-4o";
 }
 
 /**
@@ -71,13 +76,156 @@ export function resolveModelName(provider: LlmProvider = resolveProvider()): str
  * indistinguishable once flattened into one catch block.
  */
 export function isConfigured(provider: LlmProvider = resolveProvider()): boolean {
-  return Boolean(provider === "gemini" ? process.env.GOOGLE_API_KEY : process.env.OPENAI_API_KEY);
+  if (provider === "gemini") return Boolean(process.env.GOOGLE_API_KEY);
+  if (provider === "ollama") return Boolean(process.env.OLLAMA_BASE_URL?.trim());
+  return Boolean(process.env.OPENAI_API_KEY);
 }
 
-export function createChatModel(options: ChatModelOptions = {}): BaseChatModel {
+/* ── Ollama (self-hosted, OpenAI-compatible-ish chat via /api/chat) ─────── */
+
+/**
+ * Base URL of the Ollama server, e.g. http://localhost:11434 or a
+ * tunnelled public URL. Thrown lazily so importing this module never crashes
+ * the build when the variable is absent.
+ */
+export function ollamaBaseUrl(): string {
+  const raw = process.env.OLLAMA_BASE_URL?.trim().replace(/\/+$/, "");
+  if (!raw) {
+    throw new Error(
+      "OLLAMA_BASE_URL is required for the ollama provider (e.g. http://localhost:11434)",
+    );
+  }
+  return raw;
+}
+
+/** Call timeout in ms. A 27B model over a tunnel can take a while to answer. */
+export function ollamaTimeoutMs(): number {
+  const raw = process.env.OLLAMA_TIMEOUT_MS;
+  if (!raw) return 120_000;
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new Error("OLLAMA_TIMEOUT_MS must be a positive integer (milliseconds).");
+  }
+  return parsed;
+}
+
+function toOllamaRole(message: unknown): "system" | "assistant" | "user" {
+  const rec = message as Record<string, unknown> | null | undefined;
+  const getType =
+    rec && typeof rec.getType === "function"
+      ? (rec.getType as () => string)()
+      : rec && typeof rec._getType === "function"
+        ? (rec._getType as () => string)()
+        : typeof rec?.type === "string"
+          ? rec.type
+          : "";
+  if (getType === "system") return "system";
+  if (getType === "ai") return "assistant";
+  return "user";
+}
+
+interface OllamaChatOptions {
+  model?: string;
+  temperature?: number;
+  maxTokens?: number;
+}
+
+/**
+ * Minimal Ollama chat client shaped as a ChatModelLike so it plugs into
+ * generate()/generateText() with no new dependencies. Speaks Ollama's
+ * /api/chat (non-streaming). Throws at construction when OLLAMA_BASE_URL is
+ * missing; invoke()-time failures (network, timeout, bad JSON) throw too, so
+ * callers can degrade gracefully.
+ */
+export class OllamaChatModel implements ChatModelLike {
+  private readonly base: string;
+  private readonly model: string;
+  private readonly temperature: number;
+  private readonly maxTokens: number;
+
+  constructor(options: OllamaChatOptions = {}) {
+    // Fail fast with an operator-actionable message, mirroring the
+    // openai/gemini branches. Construction happens per-request, never at
+    // import time, so this cannot crash the build.
+    this.base = ollamaBaseUrl();
+    this.model = options.model ?? process.env.OLLAMA_MODEL ?? "qwen3:27b";
+    this.temperature = options.temperature ?? 0;
+    this.maxTokens = options.maxTokens ?? 1024;
+  }
+
+  async invoke(messages: unknown): Promise<{
+    content: unknown;
+    usage_metadata?: { input_tokens?: number; output_tokens?: number };
+  }> {
+    const base = this.base;
+    const list = Array.isArray(messages) ? messages : [messages];
+    const payload = {
+      model: this.model,
+      stream: false,
+      messages: list.map((m) => ({
+        role: toOllamaRole(m),
+        content: extractText((m as Record<string, unknown>)?.content),
+      })),
+      options: { temperature: this.temperature, num_predict: this.maxTokens },
+    };
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), ollamaTimeoutMs());
+    let res: Response;
+    try {
+      res = await fetch(`${base}/api/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+    } catch (err) {
+      throw new Error(
+        `Ollama request failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    } finally {
+      clearTimeout(timer);
+    }
+
+    if (!res.ok) {
+      throw new Error(`Ollama returned HTTP ${res.status} for /api/chat`);
+    }
+    let body: unknown;
+    try {
+      body = await res.json();
+    } catch {
+      throw new Error("Ollama returned a non-JSON response for /api/chat");
+    }
+    const content = (body as { message?: { content?: unknown } })?.message?.content;
+    if (typeof content !== "string" || content.trim() === "") {
+      throw new Error("Ollama returned an empty message for /api/chat");
+    }
+    // Ollama reports real eval counters on non-streaming responses; map them
+    // instead of leaving usage null.
+    const evalCount = (body as { eval_count?: unknown }).eval_count;
+    const promptEvalCount = (body as { prompt_eval_count?: unknown }).prompt_eval_count;
+    return {
+      content,
+      usage_metadata: {
+        ...(typeof promptEvalCount === "number" ? { input_tokens: promptEvalCount } : {}),
+        ...(typeof evalCount === "number" ? { output_tokens: evalCount } : {}),
+      },
+    };
+  }
+}
+
+export function createChatModel(options: ChatModelOptions = {}): BaseChatModel | ChatModelLike {
   const provider = options.provider ?? resolveProvider();
   const temperature = options.temperature ?? 0;
   const maxTokens = options.maxTokens ?? 1024;
+
+  if (provider === "ollama") {
+    return new OllamaChatModel({
+      model: options.model ?? process.env.OLLAMA_MODEL ?? "qwen3:27b",
+      temperature,
+      maxTokens,
+    });
+  }
 
   if (provider === "gemini") {
     const apiKey = process.env.GOOGLE_API_KEY;

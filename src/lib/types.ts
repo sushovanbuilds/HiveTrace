@@ -122,6 +122,9 @@ export interface VerifyResult {
   lineageDepth: number;
   qualityTestCount: number;
   lastEventDate: Date | null;
+  /** Consumer-safe origin names. Null when the batch has no recorded harvest. */
+  hiveName?: string | null;
+  apiaryName?: string | null;
 }
 
 export const HONEY_TYPES = [

@@ -36,11 +36,11 @@ const NAV_GROUPS: Array<{ section: string; items: NavItem[] }> = [
   {
     section: "Operations",
     items: [
-      { href: "/dashboard", label: "Dashboard", icon: "dashboard", cap: "batch:read", match: (p) => p === "/dashboard" },
+      { href: "/dashboard", label: "Overview", icon: "dashboard", cap: "batch:read", match: (p) => p === "/dashboard" },
       { href: "/batches", label: "Batches", icon: "inventory_2", cap: "batch:read", match: (p) => p.startsWith("/batches") },
       { href: "/traceability", label: "Traceability", icon: "timeline", cap: "batch:read", match: (p) => p.startsWith("/traceability") },
       { href: "/hives", label: "Hive Fleet", icon: "hive", cap: "farm:write", match: (p) => p.startsWith("/hives") },
-      { href: "/quality", label: "Quality Lab", icon: "science", cap: "quality:write", match: (p) => p.startsWith("/quality") },
+      { href: "/quality", label: "Laboratory", icon: "science", cap: "quality:write", match: (p) => p.startsWith("/quality") },
     ],
   },
   {
@@ -65,8 +65,8 @@ const NAV_GROUPS: Array<{ section: string; items: NavItem[] }> = [
 const MOBILE_DOCK: NavItem[] = [
   { href: "/dashboard", label: "Home", icon: "dashboard", cap: "batch:read", match: (p) => p === "/dashboard" },
   { href: "/batches", label: "Batches", icon: "inventory_2", cap: "batch:read", match: (p) => p.startsWith("/batches") },
-  { href: "/traceability", label: "Trace", icon: "timeline", cap: "batch:read", match: (p) => p.startsWith("/traceability") },
-  { href: "/quality", label: "Lab", icon: "science", cap: "quality:write", match: (p) => p.startsWith("/quality") },
+  { href: "/traceability", label: "Traceability", icon: "timeline", cap: "batch:read", match: (p) => p.startsWith("/traceability") },
+  { href: "/quality", label: "Laboratory", icon: "science", cap: "quality:write", match: (p) => p.startsWith("/quality") },
   { href: "/risk", label: "Risk", icon: "shield", cap: "risk:recalculate", match: (p) => p.startsWith("/risk") },
 ];
 

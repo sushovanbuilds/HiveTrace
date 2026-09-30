@@ -124,8 +124,19 @@ export const PATCH = route(async (
   // risk verdict. Recalculation happens via POST /api/batches/:id/risk.
   const updates: Record<string, unknown> = {};
   if (body.data.currentStage !== undefined) updates.currentStage = body.data.currentStage;
-  if (body.data.qualityStatus !== undefined) updates.qualityStatus = body.data.qualityStatus;
   if (body.data.floralSource !== undefined) updates.floralSource = body.data.floralSource;
+  if (body.data.qualityStatus !== undefined) {
+    // Certifying quality is a lab attestation; letting any custodian set it
+    // would let a producer self-certify their own honey.
+    if (!["LAB", "ADMIN"].includes(auth.user.role)) {
+      return errorResponse(
+        403,
+        "FORBIDDEN",
+        "Only a laboratory or administrator may change the quality status",
+      );
+    }
+    updates.qualityStatus = body.data.qualityStatus;
+  }
   if (body.data.verificationState !== undefined) {
     // Marking a batch VERIFIED is an attestation; only admins may assert it.
     if (auth.user.role !== "ADMIN") {

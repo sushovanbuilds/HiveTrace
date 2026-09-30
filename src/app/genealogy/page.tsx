@@ -1,6 +1,6 @@
 import { AppShell } from "@/components/app-shell";
 import { Icon } from "@/components/icons";
-import { Card, Pill } from "@/components/ui";
+import { Card } from "@/components/ui";
 
 type Node = {
   id: string;
@@ -9,7 +9,6 @@ type Node = {
   region?: string;
 };
 
-const ROOT: Node = { id: "root", code: "WB-PUR-2026-001", kind: "Blend Batch", region: "West Bengal" };
 const SOURCES: Node[] = [
   { id: "h1", code: "WB-PUR-2026-001-A", kind: "Source Batch", region: "Purulia" },
   { id: "h2", code: "WB-PUR-2026-001-B", kind: "Source Batch", region: "Bankura" },

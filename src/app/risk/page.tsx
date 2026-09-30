@@ -6,12 +6,6 @@ import { db } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
-const SEV_TONE: Record<string, "error" | "warn" | "primary"> = {
-  CRITICAL: "error",
-  HIGH: "error",
-  MEDIUM: "warn",
-};
-
 async function loadRisk() {
   try {
     const [incidents, riskCounts, openAlerts] = await Promise.all([

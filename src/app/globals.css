@@ -1,37 +1,67 @@
 @import "tailwindcss";
 
 /* =============================================================
-   HIVETRACE — Design tokens
-   Rebuilt from the Stitch "HoneyChain Narrative" (Material 3 light).
-   One accent (Warm Honey #FFB800), warm neutrals, Geist + Inter.
+   HIVETRACE — Visual identity system
+   "From Hive to Home, Verified."
+
+   Disciplined token system:
+   - warm cream surfaces, deep bark (brown) ink, honey amber accent
+   - muted botanical green reserved for verification/trust signals
+   - Material-3 roles retained for HIVEOS operational stability
    ============================================================= */
 
 @theme inline {
-  /* ── Neutrals ─────────────────────────────────────────────── */
-  --color-background: #f9f9f9;
-  --color-on-background: #1a1c1c;
-  --color-surface: #f9f9f9;
-  --color-on-surface: #1a1c1c;
-  --color-surface-bright: #f9f9f9;
-  --color-surface-dim: #dadada;
+  /* ── Brand neutrals: warm cream ───────────────────────────── */
+  --color-cream: #faf6ec;
+  --color-cream-deep: #f2ebda;
+  --color-cream-raised: #fffdf7;
+
+  /* ── Brand ink: deep bark brown ───────────────────────────── */
+  --color-bark-950: #221606;
+  --color-bark-900: #2e1f0a;
+  --color-bark-800: #402c12;
+  --color-bark-700: #54401f;
+  --color-bark-600: #6f5732;
+  --color-bark-500: #8a7350;
+
+  /* ── Brand accent: honey amber ────────────────────────────── */
+  --color-honey: #ffb800;
+  --color-honey-bright: #ffc42e;
+  --color-honey-deep: #7c5800;
+  --color-honey-ink: #2a1e05;
+  --color-honey-soft: #ffdf9e;
+  --color-honey-mist: #fdf3dd;
+
+  /* ── Botanical green (verification / trust only) ──────────── */
+  --color-leaf: #3b6934;
+  --color-leaf-deep: #274a22;
+  --color-leaf-soft: #dcebd3;
+
+  /* ── M3 roles (HIVEOS operational pages) ──────────────────── */
+  --color-background: #faf6ec;
+  --color-on-background: #241a0c;
+  --color-surface: #faf6ec;
+  --color-on-surface: #241a0c;
+  --color-surface-bright: #faf6ec;
+  --color-surface-dim: #ddd2b8;
   --color-surface-tint: #7c5800;
-  --color-surface-container-lowest: #ffffff;
-  --color-surface-container-low: #f3f3f3;
-  --color-surface-container: #eeeeee;
-  --color-surface-container-high: #e8e8e8;
-  --color-surface-container-highest: #e2e2e2;
-  --color-surface-variant: #e2e2e2;
-  --color-on-surface-variant: #514532;
-  --color-outline: #837560;
-  --color-outline-variant: #d5c4ab;
-  --color-inverse-surface: #2f3131;
-  --color-inverse-on-surface: #f0f1f1;
+  --color-surface-container-lowest: #fffdf7;
+  --color-surface-container-low: #f6f1e3;
+  --color-surface-container: #efe8d5;
+  --color-surface-container-high: #e9e0c9;
+  --color-surface-container-highest: #e2d7bc;
+  --color-surface-variant: #e2d7bc;
+  --color-on-surface-variant: #5c4c33;
+  --color-outline: #857052;
+  --color-outline-variant: #d9cba8;
+  --color-inverse-surface: #2e1f0a;
+  --color-inverse-on-surface: #f6f1e3;
 
   /* ── Primary (honey amber) ────────────────────────────────── */
   --color-primary: #7c5800;
   --color-on-primary: #ffffff;
   --color-primary-container: #ffb800;
-  --color-on-primary-container: #6b4c00;
+  --color-on-primary-container: #5e4200;
   --color-primary-fixed: #ffdea8;
   --color-primary-fixed-dim: #ffba20;
   --color-on-primary-fixed: #271900;
@@ -64,7 +94,15 @@
   --color-error-container: #ffdad6;
   --color-on-error-container: #93000a;
 
-  /* ── Spacing ──────────────────────────────────────────────── */
+  /* ── Spacing ────────────────────────────────────────────────
+     NOTE: a named --spacing-{xs..5xl} scale was removed here (2026-09-26).
+     In Tailwind v4, --spacing-* names leak into max-w-* bare values and
+     hijacked max-w-2xl/max-w-4xl (33+1 usages) to 48px/96px, visibly
+     breaking card layouts. Numeric spacing (p-6, gap-8…) is unaffected —
+     it derives from --spacing. Use --spacing-section for section rhythm. */
+  --spacing-section: clamp(4rem, 8vw, 8rem);
+
+  /* Legacy spacing names (kept for compatibility) */
   --spacing-stack-sm: 4px;
   --spacing-unit: 8px;
   --spacing-stack-md: 16px;
@@ -74,6 +112,10 @@
   --spacing-margin-desktop: 64px;
   --spacing-container-max: 1440px;
 
+  /* ── Containers ───────────────────────────────────────────── */
+  --container-site: 80rem;
+  --container-measure: 68ch;
+
   /* ── Radii ────────────────────────────────────────────────── */
   --radius: 0.25rem;
   --radius-lg: 0.5rem;
@@ -81,11 +123,86 @@
   --radius-2xl: 1rem;
   --radius-3xl: 1.5rem;
 
+  /* ── Warm shadows (restrained) ────────────────────────────── */
+  --shadow-soft: 0 1px 2px rgb(46 31 10 / 0.05), 0 12px 32px -16px rgb(46 31 10 / 0.22);
+  --shadow-lift: 0 2px 6px rgb(46 31 10 / 0.06), 0 24px 48px -20px rgb(46 31 10 / 0.28);
+
   /* ── Fonts ────────────────────────────────────────────────── */
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 
-  /* Type scale (Stitch tokens) */
+  /* ── Canonical type scale ───────────────────────────────────
+     display  → hero statements ("Know where your honey came from.")
+     heading  → section / card titles
+     body     → reading text (16px base for readability)
+     caption  → supporting descriptions
+     metadata → hashes, timestamps, technical readouts
+     eyebrow  → editorial kickers above headings
+     button / nav → interactive text                              */
+  --text-display: clamp(2.75rem, 1.5rem + 5vw, 4.5rem);
+  --text-display--line-height: 1.02;
+  --text-display--letter-spacing: -0.035em;
+  --text-display--font-weight: 700;
+
+  /* Secondary display — certificate hero (batch code), one step below display */
+  --text-display-sm: clamp(2rem, 1.35rem + 2.6vw, 2.75rem);
+  --text-display-sm--line-height: 1.1;
+  --text-display-sm--letter-spacing: -0.02em;
+  --text-display-sm--font-weight: 700;
+
+  --text-heading-xl: 2rem;
+  --text-heading-xl--line-height: 2.5rem;
+  --text-heading-xl--letter-spacing: -0.02em;
+  --text-heading-xl--font-weight: 600;
+
+  --text-heading-lg: 1.5rem;
+  --text-heading-lg--line-height: 2rem;
+  --text-heading-lg--letter-spacing: -0.01em;
+  --text-heading-lg--font-weight: 600;
+
+  --text-heading-md: 1.25rem;
+  --text-heading-md--line-height: 1.75rem;
+  --text-heading-md--font-weight: 600;
+
+  --text-heading-sm: 1.125rem;
+  --text-heading-sm--line-height: 1.625rem;
+  --text-heading-sm--font-weight: 600;
+
+  --text-body-lg: 1.125rem;
+  --text-body-lg--line-height: 1.875rem;
+  --text-body-lg--font-weight: 400;
+
+  --text-body-md: 1rem;
+  --text-body-md--line-height: 1.625rem;
+  --text-body-md--font-weight: 400;
+
+  --text-body-sm: 0.875rem;
+  --text-body-sm--line-height: 1.375rem;
+  --text-body-sm--font-weight: 400;
+
+  --text-caption: 0.8125rem;
+  --text-caption--line-height: 1.25rem;
+  --text-caption--font-weight: 400;
+
+  --text-metadata: 0.75rem;
+  --text-metadata--line-height: 1rem;
+  --text-metadata--letter-spacing: 0.02em;
+  --text-metadata--font-weight: 500;
+
+  --text-eyebrow: 0.6875rem;
+  --text-eyebrow--line-height: 1rem;
+  --text-eyebrow--letter-spacing: 0.12em;
+  --text-eyebrow--font-weight: 700;
+
+  --text-button: 0.9375rem;
+  --text-button--line-height: 1.5rem;
+  --text-button--font-weight: 600;
+
+  --text-nav: 0.875rem;
+  --text-nav--line-height: 1.25rem;
+  --text-nav--font-weight: 500;
+
+  /* Legacy type names (kept for compatibility) */
   --text-display-hero: 72px;
   --text-display-hero--line-height: 80px;
   --text-display-hero--letter-spacing: -0.04em;
@@ -105,23 +222,35 @@
   --text-headline-md--line-height: 32px;
   --text-headline-md--font-weight: 600;
 
-  --text-body-lg: 18px;
-  --text-body-lg--line-height: 28px;
-  --text-body-lg--font-weight: 400;
-
-  --text-body-md: 15px;
-  --text-body-md--line-height: 24px;
-  --text-body-md--font-weight: 400;
+  /* Certificate sub-headline (was a dead class: token never defined) */
+  --text-headline-sm: 1.25rem;
+  --text-headline-sm--line-height: 1.75rem;
+  --text-headline-sm--font-weight: 600;
 
   --text-metadata-sm: 12px;
   --text-metadata-sm--line-height: 16px;
   --text-metadata-sm--letter-spacing: 0.02em;
   --text-metadata-sm--font-weight: 500;
 
+  /* Dense metadata (was a dead class: token never defined) */
+  --text-metadata-xs: 0.6875rem;
+  --text-metadata-xs--line-height: 1rem;
+  --text-metadata-xs--letter-spacing: 0.02em;
+  --text-metadata-xs--font-weight: 500;
+
   --text-label-caps: 11px;
   --text-label-caps--line-height: 12px;
   --text-label-caps--letter-spacing: 0.05em;
   --text-label-caps--font-weight: 700;
+
+  /* ── Motion (restrained; wrappers + keyframes share these) ── */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out-soft: cubic-bezier(0.4, 0, 0.2, 1);
+  --duration-instant: 120ms;
+  --duration-fast: 200ms;
+  --duration-base: 320ms;
+  --duration-slow: 560ms;
+  --duration-slower: 1000ms;
 }
 
 /* =============================================================
@@ -130,6 +259,10 @@
 html {
   background: var(--color-background);
   -webkit-text-size-adjust: 100%;
+  /* Anchor jumps (#how, #proof…) must clear the fixed 65px header.
+     (Deliberately NOT scroll-behavior: smooth — that would animate the
+     Next.js scroll-to-top on every route change.) */
+  scroll-padding-top: 4.5rem;
 }
 
 body {
@@ -144,8 +277,8 @@ body {
 }
 
 ::selection {
-  background: var(--color-primary-container);
-  color: var(--color-on-primary-container);
+  background: var(--color-honey);
+  color: var(--color-honey-ink);
 }
 
 /* =============================================================
@@ -173,32 +306,42 @@ body {
 }
 
 /* =============================================================
-   Reusable surfaces (from the Stitch screens)
+   Reusable surfaces
+   Card discipline: use a card only when it groups information
+   that is understood better together. Plain sections with
+   rhythm (eyebrow → heading → body) are the default.
    ============================================================= */
 .glass-panel {
-  background: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 253, 247, 0.72);
   backdrop-filter: blur(20px) saturate(150%);
   -webkit-backdrop-filter: blur(20px) saturate(150%);
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(46, 31, 10, 0.08);
+  box-shadow: 0 8px 32px rgba(46, 31, 10, 0.06);
 }
 
 .glass-card {
-  background: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 253, 247, 0.72);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(0, 0, 0, 0.04);
-  box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.02), 0 2px 4px -2px rgba(0, 0, 0, 0.02);
+  border: 1px solid rgba(46, 31, 10, 0.06);
+  box-shadow: 0 4px 12px -2px rgba(46, 31, 10, 0.04), 0 2px 4px -2px rgba(46, 31, 10, 0.04);
+}
+
+/* Ambient canvas art (HexOrbit): dissolves toward the page so decorative
+   artwork never runs under body copy. */
+.orb-fade {
+  -webkit-mask-image: linear-gradient(to bottom, #000 34%, transparent 76%);
+  mask-image: linear-gradient(to bottom, #000 34%, transparent 76%);
 }
 
 .card-border {
-  border: 1px solid rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(46, 31, 10, 0.08);
 }
 
 .metric-card {
-  background-color: #ffffff;
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  box-shadow: 0 2px 8px -2px rgba(0, 0, 0, 0.02);
+  background-color: var(--color-cream-raised);
+  border: 1px solid rgba(46, 31, 10, 0.08);
+  box-shadow: 0 2px 8px -2px rgba(46, 31, 10, 0.04);
 }
 
 .chart-gradient {
@@ -206,8 +349,8 @@ body {
 }
 
 .chart-grid {
-  background-image: linear-gradient(to right, #f3f3f3 1px, transparent 1px),
-    linear-gradient(to bottom, #f3f3f3 1px, transparent 1px);
+  background-image: linear-gradient(to right, #f6f1e3 1px, transparent 1px),
+    linear-gradient(to bottom, #f6f1e3 1px, transparent 1px);
   background-size: 40px 40px;
 }
 
@@ -232,14 +375,14 @@ body {
    ============================================================= */
 .timeline-line {
   width: 1px;
-  background: linear-gradient(to bottom, #9fd292 0%, #e2e2e2 100%);
+  background: linear-gradient(to bottom, #9fd292 0%, #e2d7bc 100%);
 }
 
 .timeline-node {
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: #ffffff;
+  background: #fffdf7;
   border: 2px solid #e2dfde;
   z-index: 10;
 }
@@ -264,7 +407,7 @@ body {
 }
 
 /* =============================================================
-   Motion
+   Motion — restrained, shared easing
    ============================================================= */
 @keyframes pulse-ring {
   0% { transform: scale(1); opacity: 0.6; }
@@ -303,7 +446,9 @@ body {
   0% { top: 0; opacity: 0; }
   15% { opacity: 1; }
   85% { opacity: 1; }
-  100% { top: 240px; opacity: 0; }
+  /* Relative to the viewfinder (h-64 / sm:h-72) — a hard-coded px value
+     left the line short of the bottom edge on one breakpoint. */
+  100% { top: calc(100% - 2px); opacity: 0; }
 }
 .scan-line {
   top: 0;
@@ -358,9 +503,29 @@ body {
   animation: drawLine 2s ease-out forwards;
 }
 
+/* Verification seal: the status icon stroke draws once on mount.
+   Paths declare pathLength="1", so dash units are normalized per path and
+   every status icon (not just the checkmark) draws the same way. */
+@keyframes sealDraw {
+  from { stroke-dashoffset: 1; }
+  to { stroke-dashoffset: 0; }
+}
+.animate-seal-draw {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: sealDraw 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.25s forwards;
+}
+@keyframes sealPop {
+  from { opacity: 0; transform: scale(0.85); }
+  to { opacity: 1; transform: scale(1); }
+}
+.animate-seal-pop {
+  animation: sealPop 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
 /* Map backdrops (light + dark) */
 .map-bg {
-  background-color: #1a1c1c;
+  background-color: #221606;
   background-image:
     radial-gradient(circle at 25% 30%, rgba(255, 184, 0, 0.16) 0%, transparent 42%),
     radial-gradient(circle at 75% 70%, rgba(255, 184, 0, 0.1) 0%, transparent 40%);
@@ -382,5 +547,33 @@ a, button {
   button,
   a {
     touch-action: manipulation;
+  }
+}
+
+/* =============================================================
+   Focus visibility — brand-consistent keyboard indicator
+   A honey-amber ring with an offset, legible on cream and on dark.
+   ============================================================= */
+:focus-visible {
+  outline: 2px solid #b97e00;
+  outline-offset: 3px;
+  /* NOTE: no border-radius here — it used to flatten pill buttons to a
+     4px radius the moment they received keyboard focus. */
+}
+
+/* =============================================================
+   Reduced motion — global guard (design-system level)
+   Decorative animation never overrides user preference.
+   ============================================================= */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+    scroll-behavior: auto !important;
   }
 }

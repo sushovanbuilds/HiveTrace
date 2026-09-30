@@ -1,59 +1,76 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Icon } from "@/components/icons";
-import { HoneyJar, VerifiedRibbon } from "@/components/honey-visuals";
-import { DemoVerifyView } from "@/components/demo/demo-verify";
+import { Decode } from "@/components/threeui/Decode";
 import { isDemoBatchCode } from "@/lib/demo/config";
-import { verifyBatch, LABEL_COPY, type LabelStatus } from "@/lib/services/verify";
-import { qualityPill } from "@/components/ui";
+import { DEMO_DATA_SERVER_SNAPSHOT, getBatchByCode } from "@/lib/demo/seed";
+import {
+  verifyBatch,
+  LABEL_COPY,
+  type LabelStatus,
+  type VerifyOutcome,
+} from "@/lib/services/verify";
+import { STAGE_ORDER, type BatchStage } from "@/lib/types";
 
-const STAGE_LABEL: Record<string, string> = {
-  HARVEST: "Hive & Harvest",
-  COLLECTION: "Collection Center",
-  QUALITY_TEST: "Laboratory Analysis",
-  LAB_RESULT: "Laboratory Analysis",
-  CUSTODY_TRANSFER: "Custody Transfer",
-  PROCESSING: "Processing",
-  PACKAGING: "Packaging",
-  SHIPMENT: "Distribution",
-  RETAIL_LISTING: "Retail Distribution",
-  BATCH_UPDATED: "Batch Record Updated",
-  QR_ISSUED: "Label Issued",
-  QR_REVOKED: "Label Withdrawn",
-  ANCHOR_CREATED: "Anchored On Ledger",
-  DOCUMENT_ATTACHED: "Document Attached",
-  NOTE: "Note",
+/**
+ * Consumer verification certificate — /verify/[code].
+ *
+ * This is the public, mobile-first certificate a shopper sees after scanning a
+ * jar. It deliberately surfaces only consumer-safe facts: the batch's identity,
+ * its journey, the lab summary, and record-integrity status. Operational data
+ * (risk scores, incident IDs, internal alerts, investigator notes, fraud
+ * probabilities, private records) never reaches this view.
+ *
+ * The [code] param name is kept (not renamed to [batchId]) because printed QR
+ * labels in the wild encode /verify/:code — renaming would break them.
+ */
+
+/** Demo presentation data specified for the certificate. The batch's real
+ * attributes (honey type, origin, harvest date) come from the demo dataset;
+ * these identifiers are the user-specified demo anchors for this view. */
+const DEMO_CERT_META: Record<string, { hiveId: string; labReportId: string }> = {
+  "HC-2026-00124": { hiveId: "HIVE-A014", labReportId: "LAB-2026-441" },
 };
 
-const STAGE_ICON: Record<string, string> = {
-  HARVEST: "agriculture",
-  COLLECTION: "warehouse",
-  QUALITY_TEST: "science",
-  LAB_RESULT: "science",
-  CUSTODY_TRANSFER: "handshake",
-  PROCESSING: "factory",
-  PACKAGING: "package",
-  SHIPMENT: "local_shipping",
-  RETAIL_LISTING: "storefront",
-  ANCHOR_CREATED: "link",
-  QR_ISSUED: "qr_code",
-};
+type StepState = "done" | "current" | "todo";
 
-function toneFor(label: LabelStatus): "ok" | "warn" | "bad" | "info" {
-  switch (label) {
-    case "VALID":
-      return "ok";
-    case "NO_TOKEN":
-      return "info";
-    case "REVOKED":
-    case "EXPIRED":
-      return "warn";
-    default:
-      return "bad";
-  }
+interface JourneyStep {
+  key: string;
+  label: string;
+  state: StepState;
+  note?: string;
 }
 
-function fmtDate(d: Date | null) {
-  if (!d) return "—";
+interface LabTest {
+  type: string;
+  passed: boolean;
+}
+
+interface Certificate {
+  code: string;
+  demo: boolean;
+  status: "verified" | "found" | "warning" | "unverified" | "notfound" | "unavailable";
+  headline: string;
+  detail: string;
+  honeyType: string;
+  origin: string;
+  harvestDate: string | null;
+  hiveId: string | null;
+  labReportId: string | null;
+  labStatus: string;
+  labTests: LabTest[];
+  journey: JourneyStep[];
+  integrity: {
+    ok: boolean;
+    headline: string;
+    detail: string;
+    demoLedger: boolean;
+  } | null;
+  duplicateWarning: string | null;
+}
+
+function fmtDate(d: Date | string | null): string | null {
+  if (!d) return null;
   return new Date(d).toLocaleDateString("en-IN", {
     day: "numeric",
     month: "short",
@@ -61,7 +78,7 @@ function fmtDate(d: Date | null) {
   });
 }
 
-function honeyTitle(t: string) {
+function honeyTitle(t: string): string {
   const map: Record<string, string> = {
     MULTIFLORAL: "Multifloral Wildflower",
     ACACIA: "Acacia",
@@ -77,262 +94,526 @@ function honeyTitle(t: string) {
   return map[t] ?? t;
 }
 
-function DEMO_OUTCOME(code: string) {
-  return {
-    found: true,
-    label: "VALID" as LabelStatus,
-    message: "Honey Verified",
-    detail: LABEL_COPY.VALID.detail,
-    scanInsight: { suspicious: false, reason: null, totalScans: 1 },
-    provenance: {
-      batchId: code,
-      publicCode: code === "B1" ? "WB-PUR-2026-001" : code,
-      organisation: "HoneyFlow Co-operative",
-      currentStage: "RETAIL",
-      qualityStatus: "PASSED",
-      riskState: "LOW",
-      verificationState: "VERIFIED",
-      harvestDate: new Date("2026-07-12T06:30:00"),
-      originRegion: "Purulia, West Bengal",
-      honeyType: "MUSTARD",
-      quantity: 240,
-      lineageDepth: 2,
-      qualityTestCount: 8,
-      lastEventDate: new Date(),
-      events: [
-        { type: "HARVEST", timestamp: new Date("2026-07-12T06:30:00") },
-        { type: "COLLECTION", timestamp: new Date("2026-07-13T10:00:00") },
-        { type: "QUALITY_TEST", timestamp: new Date("2026-07-14T12:40:00") },
-        { type: "PACKAGING", timestamp: new Date("2026-07-16T09:15:00") },
-        { type: "CUSTODY_TRANSFER", timestamp: new Date("2026-07-18T14:20:00") },
-        { type: "RETAIL", timestamp: new Date("2026-07-20T08:05:00") },
-      ],
-      qualityTests: [],
+function qualityLabel(q: string): string {
+  const map: Record<string, string> = {
+    PENDING: "In progress",
+    PASSED: "Passed",
+    FAILED: "Failed",
+    QUARANTINE: "On hold",
+  };
+  return map[q] ?? q;
+}
+
+const JOURNEY_KEYS = ["HIVE", "HARVEST", "LABORATORY", "PROCESSING", "DISTRIBUTION", "VERIFIED"] as const;
+
+/** Build the six-step consumer chain from a 0-based "completed through" index. */
+function buildJourney(completedThrough: number, notes: Partial<Record<string, string>>): JourneyStep[] {
+  return JOURNEY_KEYS.map((key, i) => ({
+    key,
+    label: key.charAt(0) + key.slice(1).toLowerCase(),
+    state: (i < completedThrough ? "done" : i === completedThrough ? "current" : "todo") as StepState,
+    note: notes[key],
+  }));
+}
+
+/** Map an operational batch stage onto how far the consumer chain has progressed. */
+function stageIndex(stage: BatchStage): number {
+  const order = STAGE_ORDER.indexOf(stage);
+  if (order <= STAGE_ORDER.indexOf("COLLECTION")) return 1; // harvest recorded
+  if (stage === "LAB") return 2;
+  if (stage === "PROCESSING" || stage === "PACKAGING") return 3;
+  return 4; // DISTRIBUTION / RETAIL
+}
+
+function demoStageIndex(stage: string): number {
+  switch (stage) {
+    case "HARVEST":
+      return 1;
+    case "LAB":
+      return 2;
+    case "PROCESSING":
+    case "PACKAGING":
+      return 3;
+    case "DISTRIBUTION":
+    case "DELIVERED":
+      return 4;
+    default:
+      return 1;
+  }
+}
+
+function statusForLabel(label: LabelStatus): Certificate["status"] {
+  switch (label) {
+    case "VALID":
+      return "verified";
+    case "NO_TOKEN":
+      return "found";
+    case "REVOKED":
+    case "EXPIRED":
+      return "warning";
+    default:
+      return "unverified";
+  }
+}
+
+function headlineForLabel(label: LabelStatus): string {
+  switch (label) {
+    case "VALID":
+      return "Verified batch";
+    case "NO_TOKEN":
+      return "Batch record found";
+    case "REVOKED":
+      return "Label withdrawn";
+    case "EXPIRED":
+      return "Label expired";
+    default:
+      return "Could not be verified";
+  }
+}
+
+async function getCertificate(code: string, token: string | null): Promise<Certificate> {
+  const processed = code.toUpperCase();
+
+  // --- Demo batches: deterministic server snapshot, never the database. ---
+  if (isDemoBatchCode(processed)) {
+    const batch = getBatchByCode(DEMO_DATA_SERVER_SNAPSHOT, processed);
+    if (!batch) {
+      return {
+        code: processed,
+        demo: true,
+        status: "notfound",
+        headline: "Batch not recognised",
+        detail:
+          "No HiveTrace batch was found for this code. The label may be misprinted — check the code and try again, or scan the QR code on the jar.",
+        honeyType: "",
+        origin: "",
+        harvestDate: null,
+        hiveId: null,
+        labReportId: null,
+        labStatus: "",
+        labTests: [],
+        journey: [],
+        integrity: null,
+        duplicateWarning: null,
+      };
+    }
+    const meta = DEMO_CERT_META[processed];
+    const idx = demoStageIndex(batch.currentStage);
+    // The demo dataset records harvest as a timeline event; fall back to the
+    // batch creation date if the event is missing.
+    const harvestEvent = batch.events.find((e) => e.type === "HARVEST" || e.stage === "HARVEST");
+    const harvestDate = fmtDate(harvestEvent?.timestamp ?? batch.createdAt);
+    return {
+      code: processed,
+      demo: true,
+      status: "verified",
+      headline: "Verified batch",
+      detail:
+        "This jar's batch was found in HiveTrace records. The details below come from the demo dataset.",
+      honeyType: honeyTitle(batch.honeyType),
+      origin: batch.originRegion,
+      harvestDate,
+      hiveId: meta?.hiveId ?? null,
+      labReportId: meta?.labReportId ?? null,
+      labStatus: qualityLabel(batch.quality),
+      labTests: batch.qualityResults.map((r) => ({ type: r.testType, passed: r.passed })),
+      journey: buildJourney(idx, {
+        HIVE: meta ? `Hive ${meta.hiveId}` : undefined,
+        HARVEST: harvestDate ? `Harvested ${harvestDate}` : undefined,
+        LABORATORY: meta ? `Report ${meta.labReportId}` : undefined,
+      }),
       integrity: {
-        recordUnaltered: true,
-        unanchored: false,
-        simulated: true,
-        anchorCount: 6,
-        latestHash: "a94f…2c1e",
+        ok: true,
+        headline: "Record integrity verified",
+        detail:
+          "This is demo data, so integrity proofs are illustrative here. In production, tamper-evident proofs let anyone detect whether a batch's history was altered after it was written.",
+        demoLedger: true,
       },
-    },
+      duplicateWarning: null,
+    };
+  }
+
+  // --- Real batches: DB-backed verification. A DB failure must surface as an
+  // error state, never as a fabricated verdict. ---
+  let outcome: VerifyOutcome | null = null;
+  try {
+    outcome = await verifyBatch({ publicCode: processed }, token, null);
+  } catch {
+    outcome = null;
+  }
+
+  if (outcome === null) {
+    return {
+      code: processed,
+      demo: false,
+      status: "unavailable",
+      headline: "Verification unavailable",
+      detail:
+        "We couldn't reach the verification service, so this batch could not be checked. Please try again shortly — no verdict is shown rather than a potentially wrong one.",
+      honeyType: "",
+      origin: "",
+      harvestDate: null,
+      hiveId: null,
+      labReportId: null,
+      labStatus: "",
+      labTests: [],
+      journey: [],
+      integrity: null,
+      duplicateWarning: null,
+    };
+  }
+
+  if (!outcome.found || !outcome.provenance) {
+    return {
+      code: processed,
+      demo: false,
+      status: "notfound",
+      headline: "Batch not recognised",
+      detail:
+        "No HiveTrace batch was found for this code. If you bought this jar recently, the label may be forged or misprinted — please contact the retailer.",
+      honeyType: "",
+      origin: "",
+      harvestDate: null,
+      hiveId: null,
+      labReportId: null,
+      labStatus: "",
+      labTests: [],
+      journey: [],
+      integrity: null,
+      duplicateWarning: null,
+    };
+  }
+
+  const p = outcome.provenance;
+  const status = statusForLabel(outcome.label);
+  const idx = stageIndex(p.currentStage);
+  const integrity = p.integrity.unanchored
+    ? {
+        ok: true,
+        headline: "Record integrity verified",
+        detail:
+          "This batch's events have not yet been anchored to an external ledger. They remain sealed against tampering inside HiveTrace, and the anchor is created as the batch moves forward.",
+        demoLedger: false,
+      }
+    : p.integrity.recordUnaltered
+      ? {
+          ok: true,
+          headline: "Record integrity verified",
+          detail: `The batch's recorded history matches its tamper-evident proofs — nothing was altered after it was written. ${p.integrity.anchorCount} proof${p.integrity.anchorCount === 1 ? "" : "s"} checked.`,
+          demoLedger: p.integrity.simulated,
+        }
+      : {
+          ok: false,
+          headline: "Integrity check failed",
+          detail:
+            "This batch's record does not match its tamper-evident proof. Do not trust this label — please report it to the retailer.",
+          demoLedger: p.integrity.simulated,
+        };
+
+  return {
+    code: processed,
+    demo: false,
+    status,
+    headline: headlineForLabel(outcome.label),
+    detail: LABEL_COPY[outcome.label]?.detail ?? "Record could not be verified.",
+    honeyType: honeyTitle(p.honeyType),
+    origin: p.originRegion,
+    harvestDate: fmtDate(p.harvestDate),
+    hiveId: p.hiveName ?? null,
+    labReportId: null,
+    labStatus: qualityLabel(p.qualityStatus),
+    labTests: p.qualityTests.map((t) => ({ type: t.testType, passed: t.passed })),
+    journey: buildJourney(idx, {
+      HIVE: p.hiveName ? (p.apiaryName ? `${p.hiveName} · ${p.apiaryName}` : p.hiveName) : undefined,
+      HARVEST: p.harvestDate ? `Harvested ${fmtDate(p.harvestDate)}` : undefined,
+      LABORATORY: p.qualityTestCount > 0 ? `${p.qualityTestCount} lab tests on record` : undefined,
+    }),
+    integrity,
+    duplicateWarning: outcome.scanInsight?.suspicious ? (outcome.scanInsight.reason ?? "This label appears to have been scanned from many different places.") : null,
   };
 }
 
-export default async function VerifyResultPage({
+/* ------------------------------- presentation ------------------------------ */
+
+const SEAL: Record<Certificate["status"], { ring: string; color: string; path: string }> = {
+  verified: { ring: "border-[#3b6934] bg-[#3b6934]/10", color: "text-[#3b6934]", path: "M5 12.5l4.5 4.5L19 7.5" },
+  found: { ring: "border-[#ffb800] bg-[#ffb800]/10", color: "text-[#8a5b00]", path: "M12 7.5h.01M12 11v5.5" },
+  warning: {
+    ring: "border-[#b3541e] bg-[#b3541e]/10",
+    color: "text-[#b3541e]",
+    path: "M12 4.25L21 19.5H3Z M12 10.75v3.5 M12 16.75h.01",
+  },
+  unverified: { ring: "border-[#b3261e] bg-[#b3261e]/10", color: "text-[#b3261e]", path: "M7.5 7.5l9 9M16.5 7.5l-9 9" },
+  notfound: {
+    ring: "border-[#b3261e] bg-[#b3261e]/10",
+    color: "text-[#b3261e]",
+    path: "M2.5 10.5a8 8 0 1 0 16 0a8 8 0 1 0-16 0M16.2 16.2L21 21M4 20L20 4",
+  },
+  unavailable: {
+    ring: "border-[#5c4a2a] bg-[#5c4a2a]/10",
+    color: "text-[#5c4a2a]",
+    path: "M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z M3 3l18 18",
+  },
+};
+
+/* The seal is decorative — the status is also stated in words right below it. */
+function Seal({ status }: { status: Certificate["status"] }) {
+  const s = SEAL[status];
+  return (
+    <div className={`animate-seal-pop flex h-20 w-20 items-center justify-center rounded-full border-2 ${s.ring}`} aria-hidden>
+      <svg viewBox="0 0 24 24" className="h-9 w-9" fill="none">
+        <path
+          d={s.path}
+          pathLength={1}
+          stroke="currentColor"
+          strokeWidth={2.6}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className={`animate-seal-draw ${s.color}`}
+        />
+      </svg>
+    </div>
+  );
+}
+
+function Row({ label, value, mono }: { label: string; value: string | null; mono?: boolean }) {
+  return (
+    <div className="flex items-baseline justify-between gap-4 border-b border-[#2a1e05]/10 py-3 last:border-0">
+      <dt className="shrink-0 text-label-caps tracking-[0.14em] text-[#5c4a2a]">{label}</dt>
+      <dd className={`text-right text-body-md font-medium text-[#2a1e05] ${mono ? "font-mono tracking-wide" : ""}`}>
+        {value ?? "—"}
+      </dd>
+    </div>
+  );
+}
+
+function Journey({ steps }: { steps: JourneyStep[] }) {
+  return (
+    <ol className="relative">
+      {steps.map((step, i) => (
+        <li key={step.key} className="relative flex gap-4 pb-7 last:pb-0">
+          {/* connector */}
+          {i < steps.length - 1 && (
+            <span
+              aria-hidden
+              className={`absolute left-[17px] top-9 h-[calc(100%-2.25rem)] w-0.5 ${step.state === "done" ? "bg-[#3b6934]/40" : "bg-[#2a1e05]/10"}`}
+            />
+          )}
+          <span
+            className={`z-10 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 ${
+              step.state === "done"
+                ? "border-[#3b6934] bg-[#3b6934] text-white"
+                : step.state === "current"
+                  ? "border-[#ffb800] bg-[#ffb800]/15 text-[#8a5b00]"
+                  : "border-[#2a1e05]/30 bg-transparent text-[#2a1e05]/55"
+            }`}
+          >
+            {step.state === "done" ? (
+              <Icon name="check" className="text-[18px]" />
+            ) : step.state === "current" ? (
+              <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-[#ffb800]" aria-hidden />
+            ) : (
+              <span className="h-2 w-2 rounded-full bg-current" aria-hidden />
+            )}
+          </span>
+          <div className="pt-1">
+            <p className={`text-body-md font-semibold ${step.state === "todo" ? "text-[#2a1e05]/70" : "text-[#2a1e05]"}`}>
+              {step.label}
+            </p>
+            {step.note && <p className="mt-0.5 text-body-sm text-[#5c4a2a]">{step.note}</p>}
+            {step.state === "current" && !step.note && (
+              <p className="mt-0.5 text-body-sm text-[#5c4a2a]">In progress</p>
+            )}
+          </div>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+export async function generateMetadata({
   params,
 }: {
   params: Promise<{ code: string }>;
+}): Promise<Metadata> {
+  const { code } = await params;
+  return {
+    title: `Batch ${code}`,
+    description: `Verify batch ${code} — its journey, laboratory evidence and record integrity, from HiveTrace.`,
+  };
+}
+
+export default async function VerifyCertificatePage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ code: string }>;
+  searchParams: Promise<{ t?: string | string[] }>;
 }) {
   const { code } = await params;
-  const processed = code.toUpperCase();
-
-  // Demo batch codes resolve entirely through the shared deterministic demo
-  // dataset (live localStorage state), never the database. Real/unknown codes
-  // fall through to the existing DB-backed verification below.
-  if (isDemoBatchCode(processed)) {
-    return <DemoVerifyView code={processed} />;
-  }
-
-  const outcome = await verifyBatch({ publicCode: processed }, null, null).catch(() => DEMO_OUTCOME(processed));
-
-  const showNotFound = !outcome.found;
+  const { t } = await searchParams;
+  // `t` is the HMAC-signed label token the printed QR encodes (?t=<token>).
+  // Passing it through lets a genuine label report VALID; without it the page
+  // can only do the token-less batch-code lookup.
+  const cert = await getCertificate(code, typeof t === "string" ? t : null);
+  const hasBody = cert.status === "verified" || cert.status === "found" || cert.status === "warning";
 
   return (
-    <div className="min-h-dvh bg-background font-sans text-on-surface">
-      {/* Top nav */}
-      <nav className="mx-auto flex max-w-[1200px] items-center justify-between border-b border-outline-variant/30 px-[20px] py-4 md:px-[64px]">
-        <div className="flex items-center gap-2">
-          <Icon name="verified" fill className="text-[24px] text-tertiary" />
-          <span className="text-headline-md font-bold text-on-surface">Verification Flow</span>
-        </div>
-        <div className="flex items-center gap-3">
-          <span className="mr-2 hidden font-label-caps tracking-widest text-on-surface-variant sm:inline">
-            HIVETRACE
-          </span>
-          <Link
-            href="/verify"
-            aria-label="Close"
-            className="flex h-10 w-10 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-variant"
-          >
-            <Icon name="close" />
-          </Link>
-        </div>
+    <div className="min-h-dvh bg-[#faf6ec] font-sans text-[#2a1e05]">
+      {/* Nav */}
+      <nav className="relative mx-auto flex w-full max-w-2xl items-center justify-between px-5 py-4">
+        <Link
+          href="/scan"
+          className="flex h-11 min-w-11 items-center gap-2 rounded-full px-2 text-body-sm font-medium text-[#5c4a2a] transition-colors hover:bg-[#2a1e05]/5"
+        >
+          <Icon name="arrow_back" className="text-[20px]" />
+          <span className="hidden sm:inline">Scan</span>
+        </Link>
+        {/* Centred independently of the asymmetric left/right controls */}
+        <span className="pointer-events-none absolute left-1/2 -translate-x-1/2 text-label-caps tracking-[0.22em] text-[#8a5b00]">
+          HIVETRACE
+        </span>
+        <span className="w-11" aria-hidden />
       </nav>
 
-      <main className="mx-auto w-full max-w-[1200px] px-[20px] pt-6 md:px-[64px]">
-        {/* Hero: verification + product */}
-        <section className="mb-12 flex flex-col items-center">
-          {showNotFound ? (
-            <VerifiedRibbon
-              tone="bad"
-              message="Batch not recognised"
-              detail="No HiveTrace batch was found for this code. If you purchased this jar recently, the label may be forged or incorrectly printed — please contact the retailer or reporting@hivetrace.in."
-            />
-          ) : (
-            <VerifiedRibbon
-              tone={toneFor(outcome.label)}
-              message={
-                outcome.label === "VALID"
-                  ? "Honey Verified"
-                  : outcome.label === "NO_TOKEN"
-                    ? "Batch record found"
-                    : outcome.label === "REVOKED"
-                      ? "Label withdrawn"
-                      : outcome.label === "EXPIRED"
-                        ? "Label expired"
-                        : "Verification failed"
-              }
-              detail={LABEL_COPY[outcome.label]?.detail ?? "Record could not be verified."}
-            />
+      <main className="mx-auto w-full max-w-2xl px-5 pb-16">
+        {/* Seal + headline */}
+        <section className="animate-fade-up flex flex-col items-center pt-4 text-center">
+          <Seal status={cert.status} />
+          <p className="mt-5 text-eyebrow tracking-[0.22em] text-[#3b6934]">{cert.headline}</p>
+          {/* ThreeUI TextAnimationCollection (article-headings variant): the
+              batch code resolves through the authored decode reveal. */}
+          <Decode as="h1" className="mt-2 font-mono text-display-sm tracking-wide text-[#221606]">
+            {cert.code}
+          </Decode>
+          {cert.demo && (
+            <span className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-[#2a1e05]/5 px-3 py-1 text-label-caps text-[#5c4a2a]">
+              <Icon name="info" className="text-[14px]" />
+              Demo data
+            </span>
           )}
-
-          {outcome.provenance && (
-            <div className="mt-6 flex flex-col items-center gap-6 md:flex-row md:items-start">
-              {/* Product visual */}
-              <div className="w-full max-w-[280px]">
-                <HoneyJar
-                  code={outcome.provenance.publicCode}
-                  honeyType={honeyTitle(outcome.provenance.honeyType)}
-                  className="aspect-[4/5] w-full"
-                />
-                <p className="mt-3 text-center text-headline-lg-mobile font-semibold tracking-tight text-on-surface">
-                  {honeyTitle(outcome.provenance.honeyType)}
-                </p>
-              </div>
-
-              {/* Meta + quality */}
-              <div className="w-full max-w-sm">
-                <div className="glass-panel flex flex-col gap-1 rounded-xl p-6">
-                  <div className="flex items-center justify-between border-b border-surface-container-high pb-2">
-                    <span className="text-metadata-sm uppercase tracking-wider text-secondary">Batch ID</span>
-                    <span className="hash-mono text-label-caps text-on-surface">#{outcome.provenance.publicCode}</span>
-                  </div>
-                  <div className="flex items-center justify-between border-b border-surface-container-high py-2">
-                    <span className="text-metadata-sm uppercase tracking-wider text-secondary">Origin</span>
-                    <span className="text-body-md text-on-surface">{outcome.provenance.originRegion}</span>
-                  </div>
-                  <div className="flex items-center justify-between border-b border-surface-container-high py-2">
-                    <span className="text-metadata-sm uppercase tracking-wider text-secondary">Produced by</span>
-                    <span className="text-body-md text-on-surface">{outcome.provenance.organisation}</span>
-                  </div>
-                  <div className="flex items-center justify-between py-2 pt-3">
-                    <span className="text-metadata-sm uppercase tracking-wider text-secondary">Harvested</span>
-                    <span className="text-body-md text-on-surface">{fmtDate(outcome.provenance.harvestDate)}</span>
-                  </div>
-                </div>
-                <div className="mt-4 grid grid-cols-2 gap-3">
-                  <div className="glass-panel rounded-xl p-4">
-                    <p className="text-metadata-sm uppercase tracking-wider text-on-surface-variant">Current Stage</p>
-                    <p className="mt-1 text-body-md font-semibold text-on-surface">
-                      {qualityPill(outcome.provenance.currentStage).label}
-                    </p>
-                  </div>
-                  <div className="glass-panel rounded-xl p-4">
-                    <p className="text-metadata-sm uppercase tracking-wider text-on-surface-variant">Lab Results</p>
-                    <p className="mt-1 text-body-md font-semibold text-on-surface">
-                      {outcome.provenance.qualityTestCount} tests
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+          <p className="mt-4 max-w-md text-body-md leading-relaxed text-[#5c4a2a]">{cert.detail}</p>
         </section>
 
-        {/* Provenance timeline */}
-        {outcome.provenance && outcome.provenance.events.length > 0 && (
-          <section className="mx-auto mb-12 w-full max-w-2xl">
-            <h2 className="mb-4 border-l-4 border-primary-container px-4 font-headline-md text-headline-md text-on-surface">
-              Provenance Journey
-            </h2>
-            <div className="relative py-4 pl-6">
-              <div className="timeline-line absolute bottom-8 left-[11px] top-8" />
-              <div className="flex flex-col gap-4">
-                {[...outcome.provenance.events].reverse().map((event, idx) => (
-                  <div key={`${event.timestamp}-${idx}`} className="relative flex items-start gap-4">
-                    <div className="absolute -left-[18px] top-1 flex h-4 w-4 items-center justify-center rounded-full border-2 border-white bg-tertiary-container shadow-sm">
-                      <span className="h-2 w-2 rounded-full bg-tertiary" />
-                    </div>
-                    <div className="glass-panel flex-1 rounded-lg p-4">
-                      <div className="mb-1 flex items-start justify-between">
-                        <h3 className="font-semibold text-body-lg text-on-surface">
-                          {STAGE_LABEL[event.type] ?? event.type.replace(/_/g, " ")}
-                        </h3>
-                        <Icon name={STAGE_ICON[event.type] ?? "verified"} fill className="text-[18px] text-tertiary" />
-                      </div>
-                      <p className="text-metadata-sm text-on-surface-variant">
-                        {new Date(event.timestamp).toLocaleDateString("en-IN", {
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </section>
-        )}
-
-        {/* Quality & blockchain bento */}
-        {outcome.provenance && (
-          <section className="mx-auto mb-12 grid w-full max-w-2xl grid-cols-1 gap-4 md:grid-cols-2">
-            <div className="glass-panel rounded-xl border-t-4 border-tertiary p-6">
-              <div className="mb-4 flex items-center gap-2">
-                <Icon name="science" className="text-[24px] text-tertiary" />
-                <h3 className="font-label-caps tracking-widest text-secondary">Quality Status</h3>
-              </div>
-              <div className="flex items-end gap-3">
-                <span className="text-headline-lg-mobile font-bold text-tertiary">
-                  {outcome.provenance.qualityStatus === "PASSED"
-                    ? "PASS"
-                    : outcome.provenance.qualityStatus === "PENDING"
-                      ? "IN QA"
-                      : outcome.provenance.qualityStatus === "FAILED"
-                        ? "FAIL"
-                        : "HOLD"}
-                </span>
-                {outcome.provenance.qualityStatus !== "FAILED" && (
-                  <span className="mb-1 text-body-md text-on-surface-variant">
-                    {outcome.provenance.qualityTestCount} parameters tested
-                  </span>
-                )}
-              </div>
-            </div>
-            <div className="glass-panel rounded-xl border border-outline-variant/20 bg-surface-container-lowest/50 p-6">
-              <div className="mb-3 flex items-center gap-2">
-                <Icon name="link" className="text-[22px] text-primary" />
-                <h3 className="font-label-caps tracking-widest text-secondary">Integrity Verified</h3>
-              </div>
-              <p className="text-metadata-sm leading-relaxed text-on-surface-variant">
-                {outcome.provenance.integrity.unanchored
-                  ? "This batch's event log has not yet been anchored to an external ledger. Events remain sealed against tampering within HiveTrace."
-                  : outcome.provenance.integrity.recordUnaltered
-                    ? `Recorded events are cryptographically anchored and unaltered — ${outcome.provenance.integrity.anchorCount} proof${outcome.provenance.integrity.anchorCount === 1 ? "" : "s"} verified on the ledger.`
-                    : "The event record for this batch does not match its anchored hash. This is a serious integrity failure — please report it."}
-              </p>
-              {outcome.provenance.integrity.simulated && (
-                <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-surface-container px-2.5 py-1 text-label-caps text-on-surface-variant">
-                  <Icon name="info" className="text-[14px]" />
-                  Demo ledger
-                </p>
-              )}
-            </div>
-          </section>
-        )}
-
-        {outcome.scanInsight?.suspicious && (
-          <div className="mx-auto mb-12 flex max-w-2xl items-start gap-3 rounded-xl bg-error-container/60 p-4 text-on-error-container">
-            <Icon name="report" className="mt-0.5 text-[22px]" />
+        {cert.duplicateWarning && (
+          <div className="animate-fade-up stagger-1 mt-6 flex items-start gap-3 rounded-2xl bg-[#b3261e]/8 p-4 text-[#7a1f16]" role="alert">
+            <Icon name="report" className="mt-0.5 shrink-0 text-[22px]" />
             <p className="text-body-md">
-              <strong>Duplicate label detected.</strong> {outcome.scanInsight.reason}
+              <strong>Duplicate label detected.</strong> {cert.duplicateWarning}
             </p>
           </div>
         )}
+
+        {hasBody && (
+          <>
+            {/* Certificate card */}
+            <section aria-label="Batch certificate" className="animate-fade-up stagger-1 mt-8 overflow-hidden rounded-3xl border border-[#2a1e05]/10 bg-[#fffdf7] shadow-[0_18px_50px_-24px_rgba(42,30,5,0.35)]">
+              <div className="h-1.5 bg-gradient-to-r from-[#ffb800] via-[#e09b00] to-[#ffb800]" aria-hidden />
+              <div className="p-6 sm:p-8">
+                <h2 className="text-eyebrow tracking-[0.18em] text-[#8a5b00]">Certificate</h2>
+                <dl className="mt-2">
+                  <Row label="Honey type" value={cert.honeyType} />
+                  <Row label="Origin" value={cert.origin} />
+                  <Row label="Harvest date" value={cert.harvestDate} />
+                  <Row label="Hive" value={cert.hiveId} mono />
+                </dl>
+              </div>
+            </section>
+
+            {/* Journey */}
+            <section aria-label="Batch journey" className="animate-fade-up stagger-2 mt-8 rounded-3xl border border-[#2a1e05]/10 bg-[#fffdf7] p-6 sm:p-8">
+              <h2 className="text-eyebrow tracking-[0.18em] text-[#8a5b00]">The journey</h2>
+              <p className="mt-1.5 text-body-sm text-[#5c4a2a]">Every step this batch passed through, from hive to your jar.</p>
+              <div className="mt-6">
+                <Journey steps={cert.journey} />
+              </div>
+            </section>
+
+            {/* Laboratory */}
+            <section aria-label="Laboratory evidence" className="animate-fade-up stagger-3 mt-8 rounded-3xl border border-[#2a1e05]/10 bg-[#fffdf7] p-6 sm:p-8">
+              <div className="flex items-center gap-3">
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#3b6934]/10 text-[#3b6934]">
+                  <Icon name="science" className="text-[22px]" />
+                </span>
+                <div>
+                  <h2 className="text-eyebrow tracking-[0.18em] text-[#8a5b00]">Laboratory</h2>
+                  {cert.labReportId && (
+                    <p className="mt-0.5 font-mono text-body-sm tracking-wide text-[#2a1e05]">{cert.labReportId}</p>
+                  )}
+                </div>
+                <span className={`ml-auto rounded-full px-3 py-1 text-label-caps ${cert.labStatus === "Passed" ? "bg-[#3b6934]/10 text-[#3b6934]" : "bg-[#ffb800]/15 text-[#8a5b00]"}`}>
+                  {cert.labStatus}
+                </span>
+              </div>
+              {cert.labTests.length > 0 ? (
+                <ul className="mt-5 space-y-2">
+                  {cert.labTests.map((test, i) => (
+                    <li key={`${test.type}-${i}`} className="flex items-center justify-between rounded-xl bg-[#2a1e05]/[0.03] px-4 py-2.5">
+                      <span className="text-body-md capitalize text-[#2a1e05]">{test.type.replace(/_/g, " ").toLowerCase()}</span>
+                      <span className={`inline-flex items-center gap-1 text-body-sm font-medium ${test.passed ? "text-[#3b6934]" : "text-[#b3261e]"}`}>
+                        <Icon name={test.passed ? "check_circle" : "cancel"} fill={test.passed} className="text-[18px]" />
+                        {test.passed ? "Pass" : "Fail"}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-4 text-body-md leading-relaxed text-[#5c4a2a]">
+                  {cert.labReportId
+                    ? `Laboratory report ${cert.labReportId} is attached to this batch. The laboratory publishes its summary here once testing completes.`
+                    : "Laboratory testing has not been recorded for this batch yet."}
+                </p>
+              )}
+              <p className="mt-4 text-body-sm leading-relaxed text-[#5c4a2a]/80">
+                Detailed lab parameters are shared with the batch owner. What you see here is the public summary.
+              </p>
+            </section>
+
+            {/* Integrity */}
+            {cert.integrity && (
+              <section aria-label="Record integrity" className="animate-fade-up stagger-4 mt-8 rounded-3xl border border-[#2a1e05]/10 bg-[#221606] p-6 text-[#faf6ec] sm:p-8">
+                <div className="flex items-center gap-3">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#ffb800]/15 text-[#ffb800]">
+                    <Icon name="shield" fill className="text-[22px]" />
+                  </span>
+                  <h2 className="text-headline-sm text-white">{cert.integrity.headline}</h2>
+                </div>
+                <p className="mt-4 text-body-md leading-relaxed text-white/80">{cert.integrity.detail}</p>
+                <p className="mt-3 border-t border-white/10 pt-3 text-body-sm leading-relaxed text-white/60">
+                  Integrity proofs protect the digital record — they show whether this batch&apos;s history was
+                  changed after it was written. They don&apos;t test the honey itself; only laboratory analysis
+                  speaks to purity and quality.
+                </p>
+                {cert.integrity.demoLedger && (
+                  <span className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-label-caps text-white/70">
+                    <Icon name="info" className="text-[14px]" />
+                    Demo ledger
+                  </span>
+                )}
+              </section>
+            )}
+          </>
+        )}
+
+        {/* Footer actions */}
+        <div className="animate-fade-up stagger-4 mt-10 flex flex-col gap-3 sm:flex-row">
+          <Link
+            href="/scan"
+            className="flex h-13 flex-1 items-center justify-center gap-2 rounded-full bg-[#2a1e05] py-3.5 text-body-md font-semibold text-[#faf6ec] transition-all hover:bg-[#3a2a10] active:scale-[0.98]"
+          >
+            <Icon name="qr_code_scanner" className="text-[20px]" />
+            Scan another jar
+          </Link>
+          <Link
+            href="/"
+            className="flex h-13 flex-1 items-center justify-center gap-2 rounded-full border border-[#2a1e05]/15 py-3.5 text-body-md font-semibold text-[#2a1e05] transition-all hover:bg-[#2a1e05]/5 active:scale-[0.98]"
+          >
+            Back to home
+          </Link>
+        </div>
+        <p className="mt-6 text-center text-body-sm text-[#5c4a2a]/85">
+          Something look wrong? Tell the retailer where you bought this jar.
+        </p>
       </main>
     </div>
   );

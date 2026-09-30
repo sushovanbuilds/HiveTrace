@@ -73,3 +73,46 @@ export interface DemoUser {
   organization: string;
   initials: string;
 }
+
+export interface DemoIncident {
+  id: string;
+  batchId: string;
+  publicCode: string;
+  title: string;
+  severity: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+  status: "OPEN" | "UNDER_REVIEW" | "RESOLVED";
+  description: string;
+  createdAt: string;
+}
+
+/**
+ * Investigation state for one incident cluster (see
+ * `@/lib/incidents/clustering`). Cluster ids are deterministic, so the case
+ * store here simply keys on them. Individual demo incidents above are kept
+ * for the batch workspaces; clusters are what the Risk Center investigates.
+ */
+export type DemoClusterCaseStatus = "OPEN" | "UNDER_REVIEW" | "RESOLVED" | "DISMISSED";
+
+export interface DemoClusterCaseNote {
+  id: string;
+  author: string;
+  kind: "NOTE" | "STATUS" | "CONFIRMATION";
+  text: string;
+  createdAt: string;
+}
+
+export interface DemoClusterCase {
+  clusterId: string;
+  title: string;
+  status: DemoClusterCaseStatus;
+  /** Resolution or dismissal reason, recorded when the case closes. */
+  outcome: string | null;
+  notes: DemoClusterCaseNote[];
+  updatedAt: string;
+}
+
+export interface DemoData {
+  batches: DemoBatch[];
+  incidents: DemoIncident[];
+  clusterCases: DemoClusterCase[];
+}

@@ -3,10 +3,18 @@
 import type {
   DemoBatch,
   DemoBatchEvent,
+  DemoClusterCase,
+  DemoClusterCaseNote,
+  DemoData,
+  DemoIncident,
   DemoQualityResult,
-  DemoRole,
-  DemoStage,
 } from "@/lib/demo/types";
+import {
+  getBatch,
+  makeEvent,
+  seedClusterCases,
+  seedDemoData,
+} from "@/lib/demo/seed";
 
 /**
  * Shared demo data service.
@@ -19,25 +27,29 @@ import type {
  *
  * The dataset is deterministic: no random anomalies. HC-2026-00124 is the happy
  * path; HC-2026-00281 is a fixed GPS-mismatch incident used to demo risk/alert.
+ *
+ * The deterministic seed itself lives in `./seed.ts` (server-safe) so server
+ * components can read it; this module adds the live localStorage-backed
+ * client state on top.
  */
 
 const STORAGE_KEY = "hivetrace_demo_data";
 
-export interface DemoIncident {
-  id: string;
-  batchId: string;
-  publicCode: string;
-  title: string;
-  severity: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
-  status: "OPEN" | "UNDER_REVIEW" | "RESOLVED";
-  description: string;
-  createdAt: string;
-}
-
-export interface DemoData {
-  batches: DemoBatch[];
-  incidents: DemoIncident[];
-}
+// Re-exported for backwards compatibility: these now live in the server-safe
+// `./types` and `./seed` modules.
+export type {
+  DemoClusterCase,
+  DemoClusterCaseNote,
+  DemoClusterCaseStatus,
+  DemoData,
+  DemoIncident,
+} from "@/lib/demo/types";
+export {
+  DEMO_DATA_SERVER_SNAPSHOT,
+  getBatch,
+  getBatchByCode,
+  seedDemoData,
+} from "@/lib/demo/seed";
 
 type Listener = (data: DemoData) => void;
 
@@ -47,113 +59,26 @@ function now(): string {
   return new Date().toISOString();
 }
 
-/* ── Initial deterministic dataset ─────────────────────────────────── */
-
-function makeEvent(
-  batchId: string,
-  stage: DemoStage,
-  role: DemoRole,
-  actor: string,
-  actorName: string,
-  note: string,
-  type: string = stage,
-  timestamp: string = now(),
-): DemoBatchEvent {
-  return { batchId, type, stage, actor, actorName, role, note, timestamp };
-}
-
-function seed(): DemoData {
-  const happy = "HC-2026-00124";
-  const risky = "HC-2026-00281";
-
-  // Fixed timestamps keep the deterministic seed identical across server render
-  // and client hydration (a `now()`-derived seed would diverge and fail
-  // hydration). Mutations that happen during the demo still use real time.
-  const harvestEvent = makeEvent(
-    happy,
-    "HARVEST",
-    "BEEKEEPER",
-    "ravi@greenvalley.in",
-    "Ravi Kumar",
-    "Harvested 420 kg of Mustard honey at Valley Heights apiary, Purulia.",
-    "HARVEST_CREATED",
-    "2026-08-21T06:30:00.000Z",
-  );
-
-  const happyBatch: DemoBatch = {
-    id: happy,
-    publicCode: happy,
-    honeyType: "Mustard Honey",
-    floralSource: "Brassica juncea",
-    originRegion: "Purulia, West Bengal",
-    quantityKg: 420,
-    currentStage: "HARVEST",
-    quality: "PENDING",
-    risk: "LOW",
-    anomaly: "NONE",
-    events: [harvestEvent],
-    qualityResults: [],
-    createdAt: harvestEvent.timestamp,
-  };
-
-  const gpsEvent = makeEvent(
-    risky,
-    "HARVEST",
-    "BEEKEEPER",
-    "ravi@greenvalley.in",
-    "Ravi Kumar",
-    "Harvest recorded, but GPS trail drifts 11 km from declared apiary.",
-    "HARVEST_CREATED",
-    "2026-08-22T08:45:00.000Z",
-  );
-
-  const riskyBatch: DemoBatch = {
-    id: risky,
-    publicCode: risky,
-    honeyType: "Wildflower Honey",
-    floralSource: "Mixed wild flora",
-    originRegion: "Nashik, Maharashtra",
-    quantityKg: 260,
-    currentStage: "HARVEST",
-    quality: "PENDING",
-    risk: "HIGH",
-    anomaly: "GPS_MISMATCH",
-    events: [gpsEvent],
-    qualityResults: [],
-    createdAt: gpsEvent.timestamp,
-  };
-
-  const incident: DemoIncident = {
-    id: "inc_2026_00281",
-    batchId: risky,
-    publicCode: risky,
-    title: "GPS mismatch on harvest origin",
-    severity: "HIGH",
-    status: "OPEN",
-    description:
-      "The registered apiary coordinates for HC-2026-00281 drift more than the allowed radius from the declared harvest location. Flagged for review.",
-    createdAt: gpsEvent.timestamp,
-  };
-
-  return { batches: [happyBatch, riskyBatch], incidents: [incident] };
-}
-
 /* ── Load / save / subscribe ───────────────────────────────────────── */
 
 export function loadDemoData(): DemoData {
-  if (typeof window === "undefined") return seed();
+  if (typeof window === "undefined") return seedDemoData();
   const raw = window.localStorage.getItem(STORAGE_KEY);
   if (raw) {
     try {
       const parsed = JSON.parse(raw) as DemoData;
       if (parsed && Array.isArray(parsed.batches) && Array.isArray(parsed.incidents)) {
+        // Stored before cluster cases existed: backfill them deterministically.
+        if (!Array.isArray(parsed.clusterCases)) {
+          parsed.clusterCases = seedClusterCases();
+        }
         return parsed;
       }
     } catch {
       /* fall through to seed */
     }
   }
-  const seeded = seed();
+  const seeded = seedDemoData();
   saveDemoData(seeded);
   return seeded;
 }
@@ -186,26 +111,9 @@ export function getDemoDataSnapshot(): DemoData {
   return cached;
 }
 
-/**
- * Deterministic snapshot used during SSR/hydration. The seed uses fixed
- * timestamps, so this is byte-identical across the server and the client —
- * React hydrates against it and only then swaps to the live localStorage data.
- */
-export const DEMO_DATA_SERVER_SNAPSHOT: DemoData = seed();
-
 /** Reset the shared demo dataset to the deterministic seed (demo control only). */
 export function resetDemoData(): void {
-  saveDemoData(seed());
-}
-
-/* ── Selectors ─────────────────────────────────────────────────────── */
-
-export function getBatch(data: DemoData, batchId: string): DemoBatch | undefined {
-  return data.batches.find((b) => b.id === batchId || b.publicCode === batchId);
-}
-
-export function getBatchByCode(data: DemoData, code: string): DemoBatch | undefined {
-  return data.batches.find((b) => b.publicCode === code);
+  saveDemoData(seedDemoData());
 }
 
 /* ── Mutations (idempotent, deterministic) ─────────────────────────── */
@@ -400,4 +308,132 @@ export function confirmAnomaly(data: DemoData, batchId: string): DemoData {
     appendEvent({ ...b, risk: "HIGH" }, makeEvent(b.id, "HARVEST", "BEEKEEPER", "system", "HiveTrace Risk Engine", "GPS mismatch detected → incident raised.", "NOTE")),
   );
   return { ...next, incidents: [incident, ...data.incidents] };
+}
+/* ── Human investigation actions on incident clusters ─────────────────── */
+
+/**
+ * The five investigator actions the Risk Center offers on a cluster case:
+ * review (start investigating), confirm (the pattern is real), dismiss (not
+ * an issue), resolve (close with a recorded outcome), and add a note.
+ * All pure: they return a new DemoData; unknown cluster ids are ignored.
+ */
+
+function withClusterCase(
+  data: DemoData,
+  clusterId: string,
+  mutate: (c: DemoClusterCase) => DemoClusterCase,
+): DemoData {
+  if (!data.clusterCases.some((c) => c.clusterId === clusterId)) return data;
+  return {
+    ...data,
+    clusterCases: data.clusterCases.map((c) =>
+      c.clusterId === clusterId ? mutate(c) : c,
+    ),
+  };
+}
+
+function appendCaseNote(
+  c: DemoClusterCase,
+  author: string,
+  kind: DemoClusterCaseNote["kind"],
+  text: string,
+): DemoClusterCase {
+  const note: DemoClusterCaseNote = {
+    id: `note_${c.clusterId}_${c.notes.length + 1}`,
+    author,
+    kind,
+    text,
+    createdAt: now(),
+  };
+  return { ...c, notes: [...c.notes, note], updatedAt: note.createdAt };
+}
+
+/** Start investigating: OPEN → UNDER_REVIEW. */
+export function reviewClusterCase(data: DemoData, clusterId: string, author: string): DemoData {
+  return withClusterCase(data, clusterId, (c) =>
+    c.status !== "OPEN"
+      ? c
+      : appendCaseNote(
+          { ...c, status: "UNDER_REVIEW" },
+          author,
+          "STATUS",
+          `${author} started reviewing this incident.`,
+        ),
+  );
+}
+
+/** Confirm the anomaly pattern is real; keeps the case under review. */
+export function confirmClusterCase(
+  data: DemoData,
+  clusterId: string,
+  author: string,
+  note?: string,
+): DemoData {
+  return withClusterCase(data, clusterId, (c) => {
+    const confirmed: DemoClusterCase =
+      c.status === "OPEN" ? { ...c, status: "UNDER_REVIEW" } : c;
+    return appendCaseNote(
+      confirmed,
+      author,
+      "CONFIRMATION",
+      note?.trim() || `${author} confirmed the anomaly pattern as genuine and worth investigating.`,
+    );
+  });
+}
+
+/** Dismiss the case as not an issue; records the reason. */
+export function dismissClusterCase(
+  data: DemoData,
+  clusterId: string,
+  author: string,
+  reason: string,
+): DemoData {
+  const text = reason.trim();
+  if (!text) return data;
+  return withClusterCase(data, clusterId, (c) =>
+    appendCaseNote(
+      { ...c, status: "DISMISSED", outcome: text },
+      author,
+      "STATUS",
+      `${author} dismissed this incident: ${text}`,
+    ),
+  );
+}
+
+/** Resolve the case with a recorded outcome and optional decision label. */
+export function resolveClusterCase(
+  data: DemoData,
+  clusterId: string,
+  author: string,
+  resolution: string,
+  decision?: string,
+): DemoData {
+  const text = resolution.trim();
+  if (!text) return data;
+  return withClusterCase(data, clusterId, (c) =>
+    appendCaseNote(
+      {
+        ...c,
+        status: "RESOLVED",
+        outcome: decision?.trim() ? `${decision.trim()} — ${text}` : text,
+      },
+      author,
+      "STATUS",
+      `${author} resolved this incident: ${text}`,
+    ),
+  );
+}
+
+/** Add a free-form investigation note; does not change the status. */
+export function addClusterCaseNote(
+  data: DemoData,
+  clusterId: string,
+  author: string,
+  text: string,
+): DemoData {
+  const trimmed = text.trim();
+  if (!trimmed) return data;
+  return withClusterCase(data, clusterId, (c) =>
+    appendCaseNote(c, author, "NOTE", trimmed),
+  );
 }

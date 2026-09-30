@@ -5,7 +5,14 @@ import { Icon } from "@/components/icons";
 /* ────────────────────────────────────────────────────────────────
    Button
    ──────────────────────────────────────────────────────────────── */
-type ButtonVariant = "primary" | "secondary" | "outline" | "ghost" | "danger";
+type ButtonVariant =
+  | "primary"
+  | "secondary"
+  | "outline"
+  | "ghost"
+  | "danger"
+  | "cta"
+  | "hiveos";
 type ButtonSize = "sm" | "md" | "lg";
 
 const BTN_VARIANTS: Record<ButtonVariant, string> = {
@@ -17,12 +24,19 @@ const BTN_VARIANTS: Record<ButtonVariant, string> = {
     "border border-outline-variant bg-transparent text-on-surface hover:bg-surface-container-low",
   ghost: "text-on-surface-variant hover:bg-surface-container",
   danger: "bg-error-container text-on-error-container hover:bg-error-container/80",
+  /* Brand CTAs — the two public actions.
+     cta   → "Scan & Verify" (honey amber, deep-bark ink)
+     hiveos → "Open HIVEOS" (deep bark, quiet operational signal) */
+  cta:
+    "bg-honey text-honey-ink hover:bg-honey-bright active:bg-[#f0a500] shadow-soft",
+  hiveos:
+    "bg-bark-950 text-cream hover:bg-bark-800 active:bg-bark-900 shadow-soft",
 };
 
 const BTN_SIZES: Record<ButtonSize, string> = {
-  sm: "h-9 px-3 text-body-md gap-1.5 rounded-lg",
-  md: "h-11 px-4 text-body-md gap-2 rounded-xl",
-  lg: "h-12 px-6 text-body-lg gap-2 rounded-xl",
+  sm: "h-9 px-3 text-body-sm gap-1.5 rounded-lg",
+  md: "h-11 px-4 text-button gap-2 rounded-xl",
+  lg: "h-12 px-6 text-button gap-2 rounded-xl",
 };
 
 type CommonProps = {
@@ -61,6 +75,8 @@ export function ButtonLink({
   variant = "primary",
   size = "md",
   icon,
+  iconRight,
+  fillIcon,
   children,
   className = "",
   ...props
@@ -71,8 +87,9 @@ export function ButtonLink({
       className={`inline-flex items-center justify-center font-medium transition-all duration-200 active:scale-[0.98] ${BTN_VARIANTS[variant]} ${BTN_SIZES[size]} ${className}`}
       {...props}
     >
-      {icon ? <Icon name={icon} className="text-[20px]" /> : null}
+      {icon ? <Icon name={icon} fill={fillIcon} className="text-[20px]" /> : null}
       {children}
+      {iconRight ? <Icon name={iconRight} fill={fillIcon} className="text-[18px]" /> : null}
     </Link>
   );
 }
@@ -113,7 +130,7 @@ export function Pill({
 }) {
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 font-label-caps text-label-caps tracking-wider ${PILL_TONES[tone]} ${className}`}
+      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-eyebrow uppercase tracking-wider ${PILL_TONES[tone]} ${className}`}
     >
       {icon ? <Icon name={icon} className="text-[16px]" /> : null}
       {dot ? <span className={`w-1.5 h-1.5 rounded-full ${dot}`} /> : null}
@@ -158,135 +175,6 @@ export function GlassCard({
   );
 }
 
-export function CardHeader({
-  title,
-  subtitle,
-  icon,
-  iconTone = "primary-container",
-  action,
-  className = "",
-}: {
-  title: ReactNode;
-  subtitle?: ReactNode;
-  icon?: string;
-  iconTone?: "primary-container" | "tertiary-container" | "error" | "surface" | "dark" | "surface-high";
-  action?: ReactNode;
-  className?: string;
-}) {
-  return (
-    <div className={`flex items-start justify-between gap-4 ${className}`}>
-      <div className="flex items-center gap-3">
-        {icon ? (
-          <span
-            className={`inline-flex h-10 w-10 items-center justify-center rounded-xl ${iconTone === "primary-container" ? "bg-primary-container/30 text-primary" : iconTone === "tertiary-container" ? "bg-tertiary-container/40 text-tertiary" : iconTone === "error" ? "bg-error-container text-on-error-container" : iconTone === "dark" ? "bg-inverse-surface text-inverse-on-surface" : "bg-surface-container text-on-surface-variant"}`}
-          >
-            <Icon name={icon} />
-          </span>
-        ) : null}
-        <div>
-          <h3 className="font-headline-md text-headline-md text-on-surface">{title}</h3>
-          {subtitle ? (
-            <p className="text-body-md text-on-surface-variant">{subtitle}</p>
-          ) : null}
-        </div>
-      </div>
-      {action ? <div className="flex items-center gap-2 shrink-0">{action}</div> : null}
-    </div>
-  );
-}
-
-/* ────────────────────────────────────────────────────────────────
-   Metric card
-   ──────────────────────────────────────────────────────────────── */
-export function MetricCard({
-  label,
-  value,
-  sub,
-  icon,
-  tone = "tertiary",
-  trend,
-  trendUp,
-  className = "",
-}: {
-  label: string;
-  value: ReactNode;
-  sub?: ReactNode;
-  icon?: string;
-  tone?: "tertiary" | "primary" | "error" | "surface" | "dark";
-  trend?: string;
-  trendUp?: boolean;
-  className?: string;
-}) {
-  const tones = {
-    tertiary: "text-tertiary",
-    primary: "text-primary",
-    error: "text-error",
-    surface: "text-on-surface-variant",
-    dark: "text-on-surface",
-  };
-  const iconTones = {
-    tertiary: "bg-tertiary-container/50 text-on-tertiary-container",
-    primary: "bg-primary-container/40 text-on-primary-container",
-    error: "bg-error-container text-on-error-container",
-    surface: "bg-surface-container text-on-surface-variant",
-    dark: "bg-inverse-surface text-inverse-on-surface",
-  };
-  return (
-    <div className={`metric-card rounded-xl p-5 ${className}`}>
-      <div className="flex items-start justify-between">
-        <p className="text-metadata-sm tracking-wider text-on-surface-variant uppercase">{label}</p>
-        {icon ? (
-          <span className={`inline-flex h-10 w-10 items-center justify-center rounded-lg ${iconTones[tone]}`}>
-            <Icon name={icon} className="text-[22px]" />
-          </span>
-        ) : null}
-      </div>
-      <p className="mt-3 font-headline-lg text-headline-lg text-on-surface tabular-nums tracking-tight">{value}</p>
-      <div className="mt-2 flex items-center gap-2">
-        {trend ? (
-          <Pill tone={trendUp ? "tertiary" : "error"} icon={trendUp ? "trending_up" : "trending_down"}>
-            {trend}
-          </Pill>
-        ) : null}
-        {sub ? <span className={`text-body-md ${tones[tone]}`}>{sub}</span> : null}
-      </div>
-    </div>
-  );
-}
-
-/* ────────────────────────────────────────────────────────────────
-   Page header
-   ──────────────────────────────────────────────────────────────── */
-export function PageHeader({
-  eyebrow,
-  title,
-  subtitle,
-  actions,
-  icon,
-}: {
-  eyebrow?: ReactNode;
-  title: ReactNode;
-  subtitle?: ReactNode;
-  actions?: ReactNode;
-  icon?: string;
-}) {
-  return (
-    <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 sm:gap-6">
-      <div className="max-w-2xl">
-        {eyebrow ? (
-          <div className="mb-2 text-metadata-sm tracking-wider text-secondary uppercase">{eyebrow}</div>
-        ) : null}
-        <h1 className="flex items-center gap-3 font-headline-lg text-headline-lg[-0.02em] text-on-surface tracking-tight">
-          {icon ? <Icon name={icon} className="text-[32px] text-secondary" /> : null}
-          {title}
-        </h1>
-        {subtitle ? <p className="mt-2 text-body-lg text-on-surface-variant">{subtitle}</p> : null}
-      </div>
-      {actions ? <div className="flex items-center gap-3 shrink-0">{actions}</div> : null}
-    </div>
-  );
-}
-
 /* ────────────────────────────────────────────────────────────────
    Status helpers
    ──────────────────────────────────────────────────────────────── */
@@ -322,15 +210,6 @@ export function qualityPill(status: string) {
   return map[status] ?? map.PENDING;
 }
 
-export function verificationPill(state: string) {
-  const map: Record<string, { tone: PillTone; label: string }> = {
-    VERIFIED: { tone: "tertiary", label: "Verified" },
-    UNVERIFIED: { tone: "surface", label: "Unverified" },
-    DISPUTED: { tone: "error", label: "Disputed" },
-  };
-  return map[state] ?? map.UNVERIFIED;
-}
-
 /* ────────────────────────────────────────────────────────────────
    Progress / bars
    ──────────────────────────────────────────────────────────────── */
@@ -358,75 +237,6 @@ export function ProgressBar({
   );
 }
 
-export function RiskGauge({ score, size = 64 }: { score: number; size?: number }) {
-  const token = Math.max(0, Math.min(1, score));
-  const color = token < 0.4 ? "#3b6934" : token < 0.7 ? "#7c5800" : "#ba1a1a";
-  const pct = (score * 100).toFixed(0);
-  return (
-    <div className="relative" style={{ width: size, height: size }}>
-      <svg viewBox="0 0 36 36" style={{ width: size, height: size }}>
-        <circle cx="18" cy="18" r="15.915" fill="none" stroke="#e2e2e2" strokeWidth="3.5" />
-        <circle
-          cx="18"
-          cy="18"
-          r="15.915"
-          fill="none"
-          stroke={color}
-          strokeWidth="3.5"
-          strokeLinecap="round"
-          strokeDasharray={`${token * 100} 100`}
-          transform="rotate(-90 18 18)"
-          className="transition-all duration-700"
-        />
-      </svg>
-      <span
-        className="absolute inset-0 flex items-center justify-center text-headline-md font-semibold tabular-nums active-scale"
-        style={{ color }}
-      >
-        {pct}
-      </span>
-    </div>
-  );
-}
-
-/* ────────────────────────────────────────────────────────────────
-   Segmented control / filter tabs
-   ──────────────────────────────────────────────────────────────── */
-export function Segmented<T extends string>({
-  options,
-  value,
-  onChange,
-  className = "",
-}: {
-  options: Array<{ value: T; label: ReactNode }>;
-  value: T;
-  onChange: (v: T) => void;
-  className?: string;
-}) {
-  return (
-    <div
-      className={`inline-flex items-center gap-1 rounded-lg bg-surface-container p-1 ${className}`}
-      role="tablist"
-    >
-      {options.map((opt) => (
-        <button
-          key={opt.value}
-          role="tab"
-          aria-selected={value === opt.value}
-          onClick={() => onChange(opt.value)}
-          className={`px-3 py-1.5 rounded-md text-body-md font-medium transition-all duration-200 ${
-            value === opt.value
-              ? "bg-white text-on-surface shadow-sm"
-              : "text-on-surface-variant hover:text-on-surface"
-          }`}
-        >
-          {opt.label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
 /* ────────────────────────────────────────────────────────────────
    Empty state
    ──────────────────────────────────────────────────────────────── */
@@ -446,9 +256,105 @@ export function EmptyState({
       <span className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-surface-container text-on-surface-variant">
         <Icon name={icon} className="text-[30px]" />
       </span>
-      <h3 className="mt-4 font-headline-md text-headline-md text-on-surface">{title}</h3>
+      <h3 className="mt-4 text-heading-lg text-on-surface">{title}</h3>
       {body ? <p className="mt-1 max-w-sm text-body-md text-on-surface-variant">{body}</p> : null}
       {action ? <div className="mt-5">{action}</div> : null}
+    </div>
+  );
+}
+/* ────────────────────────────────────────────────────────────────
+   Editorial type primitives
+   Enforce the hierarchy: eyebrow → display/heading → lede → body.
+   Answer "what should the user look at next?" by construction.
+   ──────────────────────────────────────────────────────────────── */
+
+/** Hero statement. One per view. */
+export function Display({
+  children,
+  className = "",
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <h1 className={`text-display text-bark-950 text-balance ${className}`}>
+      {children}
+    </h1>
+  );
+}
+
+/** Editorial kicker above a heading. Always paired, never alone. */
+export function Eyebrow({
+  children,
+  icon,
+  tone = "deep",
+  className = "",
+}: {
+  children: ReactNode;
+  icon?: string;
+  /** `deep` for cream surfaces, `honey` for bark/dark surfaces. */
+  tone?: "deep" | "honey";
+  className?: string;
+}) {
+  return (
+    <p
+      className={`inline-flex items-center gap-2 text-eyebrow uppercase ${tone === "honey" ? "text-honey" : "text-honey-deep"} ${className}`}
+    >
+      {icon ? <Icon name={icon} className="text-[14px]" /> : null}
+      {children}
+    </p>
+  );
+}
+
+/** Canonical section header: eyebrow → heading → optional lede. */
+export function SectionHeading({
+  eyebrow,
+  title,
+  lede,
+  align = "left",
+  className = "",
+}: {
+  eyebrow: string;
+  title: ReactNode;
+  lede?: ReactNode;
+  align?: "left" | "center";
+  className?: string;
+}) {
+  const alignCls = align === "center" ? "text-center items-center" : "text-left items-start";
+  return (
+    <div className={`flex flex-col gap-3 ${alignCls} ${className}`}>
+      <Eyebrow>{eyebrow}</Eyebrow>
+      <h2 className="text-heading-xl text-bark-950 text-balance max-w-measure">
+        {title}
+      </h2>
+      {lede ? (
+        <p className="text-body-lg text-on-surface-variant max-w-measure">{lede}</p>
+      ) : null}
+    </div>
+  );
+}
+
+/* ────────────────────────────────────────────────────────────────
+   Layout primitive
+   ──────────────────────────────────────────────────────────────── */
+
+/** Page container: consistent measure, gutters, and max width. */
+export function Container({
+  children,
+  narrow = false,
+  className = "",
+}: {
+  children: ReactNode;
+  narrow?: boolean;
+  className?: string;
+}) {
+  return (
+    <div
+      className={`mx-auto w-full px-5 sm:px-8 ${
+        narrow ? "max-w-measure" : "max-w-site"
+      } ${className}`}
+    >
+      {children}
     </div>
   );
 }

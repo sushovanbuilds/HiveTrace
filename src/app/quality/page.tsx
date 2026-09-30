@@ -39,7 +39,7 @@ export default async function QualityLabPage() {
   return (
     <AppShell>
       <div className="mb-8">
-        <h1 className="text-headline-lg tracking-tight text-on-surface">Quality Lab</h1>
+        <h1 className="text-headline-lg tracking-tight text-on-surface">Laboratory Evidence</h1>
         <p className="mt-1 max-w-2xl text-body-md text-on-surface-variant">
           Central laboratory queue — every purity panel is recorded and cryptographically anchored
           before a batch can move downstream.

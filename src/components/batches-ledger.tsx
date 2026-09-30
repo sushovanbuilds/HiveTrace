@@ -77,12 +77,10 @@ export function BatchesLedger({
 }) {
   const [q, setQ] = useState("");
   const [stage, setStage] = useState<string | null>(null);
-  const [risk, setRisk] = useState<string | null>(null);
 
   const rows = useMemo(() => {
     return initial.filter((b) => {
       if (stage && b.currentStage !== stage) return false;
-      if (risk && b.riskState !== risk) return false;
       if (!q.trim()) return true;
       const term = q.trim().toLowerCase();
       return (
@@ -91,10 +89,9 @@ export function BatchesLedger({
         b.originRegion.toLowerCase().includes(term)
       );
     });
-  }, [initial, q, stage, risk]);
+  }, [initial, q, stage]);
 
   const stages = [...BATCH_STAGES];
-  const risks = ["LOW", "MEDIUM", "HIGH"];
 
   return (
     <div className="rounded-xl border border-outline-variant/30 bg-surface-container-lowest shadow-sm">

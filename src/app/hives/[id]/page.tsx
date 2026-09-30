@@ -3,76 +3,94 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { AppShell } from "@/components/app-shell";
 import { Icon } from "@/components/icons";
-import { Pill, ProgressBar } from "@/components/ui";
-import { TrendChart, HBar } from "@/components/charts";
-import { db } from "@/lib/db";
+import { GlassCard, Pill } from "@/components/ui";
+import { TrendChart } from "@/components/charts";
+import { getHiveOS } from "@/lib/hiveos/service";
+import { HealthBadge, scoreTone } from "@/components/hiveos/health-badge";
+import { WhyPanel } from "@/components/hiveos/why-panel";
+import { ActionList } from "@/components/hiveos/action-list";
+import { AiAdvisor } from "@/components/hiveos/ai-advisor";
+import { TrustLadder } from "@/components/hiveos/trust-ladder";
+import { HivePassportCard } from "@/components/hiveos/passport";
+import { TraceBridge } from "@/components/hiveos/trace-bridge";
+import { InterventionMemory } from "@/components/hiveos/interventions";
+import { WhatIfSimulator } from "@/components/hiveos/what-if";
+import { ProtoNote, SectionTitle } from "@/components/hiveos/shared";
+import type { FactorSeverity } from "@/lib/hiveos/types";
 
 export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
-  return { title: `Hive ${id}` };
+  const view = await getHiveOS(id);
+  return { title: view ? `HiveOS · ${view.passport.name}` : "Hive not found" };
 }
 
-const TYPE_LABEL: Record<string, string> = {
-  LANGSTROTH: "Langstroth",
-  TOP_BAR: "Top-Bar",
-  WARRE: "Warré",
-  OTHER: "Other",
+const FACTOR_ICON: Record<FactorSeverity, { name: string; cls: string }> = {
+  bad: { name: "error", cls: "text-error" },
+  watch: { name: "warning", cls: "text-primary" },
+  info: { name: "check_circle", cls: "text-tertiary" },
 };
 
-async function loadHive(id: string) {
-  try {
-    return await db.hive.findUnique({
-      where: { id },
-      include: {
-        farm: { select: { name: true, region: true, location: true } },
-        harvests: { orderBy: { date: "desc" }, take: 30, select: { id: true, date: true, quantity: true, honeyType: true } },
-      },
-    });
-  } catch {
-    return null;
-  }
+function trendArrow(now: number | null, then: number | null, invert = false): string {
+  if (now == null || then == null) return "→";
+  const d = now - then;
+  if (Math.abs(d) < 1e-9) return "→";
+  const up = d > 0;
+  return up !== invert ? "▲" : "▼";
 }
 
 export default async function HiveDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const hive = await loadHive(id);
-  if (!hive) {
-    const demo = DEMO_BY_ID[id];
-    if (!demo) notFound();
-    return <HiveDetailView demo={demo} />;
-  }
-  const demo = {
-    id: hive.id,
-    name: hive.name,
-    type: TYPE_LABEL[hive.type] ?? hive.type,
-    status: hive.status,
-    farm: hive.farm?.name ?? "Unassigned",
-    region: hive.farm?.region ?? "—",
-    harvests: hive.harvests.map((h) => ({ date: h.date, quantity: h.quantity, honeyType: h.honeyType })),
-  };
-  return <HiveDetailView demo={demo} />;
-}
+  const view = await getHiveOS(id);
+  if (!view) notFound();
 
-function HiveDetailView({
-  demo,
-}: {
-  demo: {
-    id: string;
-    name: string;
-    type: string;
-    status: string;
-    farm: string;
-    region: string;
-    harvests: Array<{ date: Date; quantity: number; honeyType: string }>;
-  };
-}) {
+  const { passport, assessment, signals, why, actions, evidence, confidence } = view;
   const statusPill: "tertiary" | "warn" | "error" | "surface" =
-    demo.status === "ACTIVE" ? "tertiary" : demo.status === "INSPECTION" ? "warn" : demo.status === "COLONY_LOSS" ? "error" : "surface";
-  const statusDot = demo.status === "ACTIVE" ? "bg-tertiary" : demo.status === "INSPECTION" ? "bg-primary" : "bg-error";
-  const spark = demo.harvests.length >= 2 ? demo.harvests.slice(0, 8).map((h) => h.quantity).reverse() : [8, 9, 12, 10, 11, 12, 13, 12];
-  const labels = demo.harvests.length >= 2 ? demo.harvests.slice(0, 8).map((h, i) => `${i + 1}`).reverse() : ["W1", "W2", "W3", "W4", "W5", "W6", "W7", "W8"];
+    passport.status === "ACTIVE" ? "tertiary" : passport.status === "INSPECTION" ? "warn" : passport.status === "COLONY_LOSS" ? "error" : "surface";
+
+  const obs = view.observations;
+  const latest = obs[obs.length - 1];
+  const weekAgo = obs[obs.length - 8] ?? obs[0];
+  const weights = obs.map((o) => o.weightKg);
+  const weightVals = weights.filter((v): v is number => v != null).slice(-14);
+  const weightLabels = obs
+    .filter((o) => o.weightKg != null)
+    .slice(-14)
+    .map((o) => new Date(o.date).toLocaleDateString("en-IN", { day: "numeric", month: "short" }));
+
+  const telemetry = [
+    {
+      icon: "thermostat",
+      label: "Internal Temp",
+      value: latest?.tempC != null ? `${latest.tempC.toFixed(1)}°C` : "—",
+      sub: latest?.tempC != null ? `${trendArrow(latest.tempC, weekAgo?.tempC ?? null)} vs 7d ago` : "no sensor",
+    },
+    {
+      icon: "water_drop",
+      label: "Humidity",
+      value: latest?.humidityPct != null ? `${latest.humidityPct}%` : "—",
+      sub: latest?.humidityPct != null ? `${trendArrow(latest.humidityPct, weekAgo?.humidityPct ?? null)} vs 7d ago` : "no sensor",
+    },
+    {
+      icon: "scale",
+      label: "Hive Weight",
+      value: latest?.weightKg != null ? `${latest.weightKg.toFixed(1)} kg` : "—",
+      sub:
+        signals.weightTrendKgPerDay != null
+          ? `${signals.weightTrendKgPerDay >= 0 ? "+" : ""}${signals.weightTrendKgPerDay.toFixed(2)} kg/day`
+          : "no trend",
+    },
+    {
+      icon: "sensors",
+      label: "Activity Index",
+      value: latest?.activityIndex != null ? `${latest.activityIndex}/100` : "—",
+      sub:
+        signals.activityDelta != null
+          ? `${signals.activityDelta >= 0 ? "+" : ""}${signals.activityDelta.toFixed(0)} vs baseline`
+          : "no baseline",
+    },
+  ];
 
   return (
     <AppShell>
@@ -84,15 +102,15 @@ function HiveDetailView({
               <Icon name="chevron_left" className="text-[16px]" />
               Hive Fleet
             </Link>
+            <Pill tone="primary">HiveOS</Pill>
+            {view.isDemo && <Pill tone="surface">Demo data</Pill>}
           </div>
-          <h1 className="flex items-center gap-3 text-headline-lg tracking-tight text-on-surface">
-            {demo.name}
-            <Pill tone={statusPill} dot={statusDot}>
-              {demo.status.replace(/_/g, " ")}
-            </Pill>
+          <h1 className="flex flex-wrap items-center gap-3 text-headline-lg tracking-tight text-on-surface">
+            {passport.name}
+            <Pill tone={statusPill}>{passport.status.replace(/_/g, " ")}</Pill>
           </h1>
           <p className="mt-1 text-body-lg text-on-surface-variant">
-            {demo.farm} · {demo.region} · {demo.type}
+            {passport.farm} · {passport.region} · {passport.type} · Code {passport.code}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -107,142 +125,105 @@ function HiveDetailView({
         </div>
       </div>
 
-      {/* Live telemetry */}
+      {/* Live telemetry — driven by the observation series */}
       <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4 md:gap-6">
-        {[
-          { icon: "thermostat", label: "Internal Temp", value: "35.2°C", cls: "text-on-surface" },
-          { icon: "water_drop", label: "Humidity", value: "62%", cls: "text-on-surface" },
-          { icon: "scale", label: "Hive Weight", value: "42 kg", cls: "text-on-surface" },
-          { icon: "hive", label: "Est. Prod.", value: "12 kg", cls: "text-tertiary" },
-        ].map((m) => (
+        {telemetry.map((m) => (
           <div key={m.label} className="metric-card rounded-xl p-5 transition-shadow hover:shadow-md">
             <p className="mb-4 flex items-center gap-2 text-label-caps uppercase tracking-wider text-on-surface-variant">
               <Icon name={m.icon} className="text-[18px]" />
               {m.label}
             </p>
-            <p className={`text-headline-md tabular-nums tracking-tight ${m.cls}`}>{m.value}</p>
+            <p className="text-headline-md tabular-nums tracking-tight text-on-surface">{m.value}</p>
+            <p className="mt-1 flex items-center justify-between text-metadata-sm text-on-surface-variant">
+              {m.sub}
+              <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${latest?.source === "SENSOR" ? "bg-tertiary/15 text-tertiary" : "bg-surface-container-highest text-on-surface-variant"}`}>
+                {latest?.source === "SENSOR" ? "sensor" : "manual"}
+              </span>
+            </p>
           </div>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* Trends + history */}
-        <div className="space-y-6 lg:col-span-2">
-          <div className="glass-card rounded-xl p-6">
-            <div className="mb-6 flex items-center justify-between">
-              <h3 className="text-metadata-sm font-semibold text-on-surface">
-                Weight &amp; Influences (30 Days)
-              </h3>
-              <div className="flex items-center gap-1.5 text-metadata-sm text-on-surface-variant">
-                <span className="h-2 w-2 rounded-full bg-primary-container" />
-                Nectar Inflow
-                <span className="h-2 w-2 rounded-full bg-tertiary" />
-                Weight Gain
-              </div>
-            </div>
-            <TrendChart labels={labels} values={spark} tone="#3b6934" />
-          </div>
-
-          <div className="glass-card rounded-xl p-6">
-            <h3 className="mb-4 text-metadata-sm font-semibold text-on-surface">Recent Harvests</h3>
-            {demo.harvests.length === 0 ? (
-              <p className="text-body-md text-on-surface-variant">No harvests recorded for this hive yet.</p>
-            ) : (
-              <div className="divide-y divide-outline-variant/15">
-                {demo.harvests.slice(0, 6).map((h) => (
-                  <div key={`${h.date}-${h.quantity}`} className="flex items-center justify-between py-3">
-                    <div className="flex items-center gap-3">
-                      <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-tertiary-container/40 text-tertiary">
-                        <Icon name="water_drop" className="text-[18px]" />
-                      </span>
-                      <div>
-                        <p className="text-body-md font-medium text-on-surface">
-                          {h.honeyType.replace(/_/g, " ")} extraction
-                        </p>
-                        <p className="text-metadata-sm text-on-surface-variant">
-                          {h.date.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
-                        </p>
-                      </div>
-                    </div>
-                    <span className="text-body-md font-semibold tabular-nums text-on-surface">{h.quantity} kg</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* HIVE INTELLIGENCE panel */}
-        <div className="rounded-xl bg-inverse-surface p-6 text-inverse-on-surface shadow-lg">
-          <p className="mb-4 text-label-caps tracking-wider text-primary-container">HIVE INTELLIGENCE</p>
-          <div className="flex items-center justify-between">
-            <span className="text-metadata-sm text-secondary-fixed-dim">Health Score</span>
-            <span className="text-[28px] font-bold tracking-tight" style={{ color: "#9fd292" }}>
-              88
-            </span>
-          </div>
-          <ProgressBar value={88} tone="tertiary" className="mt-2" />
-          <div className="mt-6 mb-3 flex items-center gap-2">
-            <Icon name="sensors" className="text-[20px] text-primary-container" />
-            <span className="text-label-caps uppercase tracking-widest text-secondary-fixed-dim">
-              Signature Analysis
-            </span>
-          </div>
-          <div className="space-y-4">
-            <HBar label="Brood Viability" value={92} tone="#9fd292" />
-            <HBar label="Foraging Activity" value={78} tone="#ffba20" />
-            <HBar label="Queen Health" value={85} tone="#9fd292" />
-            <HBar label="Stress Index" value={34} tone="#e2dfde" />
-          </div>
+      {/* Health state + trust */}
+      <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <GlassCard className="p-6 lg:col-span-2">
+          <SectionTitle icon="monitor_heart">Hive health state</SectionTitle>
+          <HealthBadge state={assessment.state} score={assessment.score} />
 
           <div className="mt-6">
-            <h4 className="mb-3 text-label-caps uppercase tracking-widest text-secondary-fixed-dim">
-              Key Evidence
-            </h4>
-            <ul className="space-y-2 text-metadata-sm">
-              <li className="flex items-center gap-2">
-                <Icon name="check_circle" fill className="text-[18px] text-tertiary-fixed-dim" />
-                Sustained weight gain 6 of 7 days
-              </li>
-              <li className="flex items-center gap-2">
-                <Icon name="check_circle" fill className="text-[18px] text-tertiary-fixed-dim" />
-                Temperature stable within band
-              </li>
-              <li className="flex items-center gap-2">
-                <Icon name="warning" className="text-[18px] text-primary-container" />
-                Varroa pressure index climbing
-              </li>
+            <p className="mb-2 text-label-caps font-semibold uppercase tracking-wider text-on-surface-variant">
+              Factors contributing to the score
+            </p>
+            <ul className="divide-y divide-outline-variant/15">
+              {assessment.factors.map((fx) => {
+                const ic = FACTOR_ICON[fx.severity];
+                return (
+                  <li key={fx.key} className="flex items-start justify-between gap-3 py-2.5">
+                    <span className="flex items-start gap-2.5">
+                      <Icon name={ic.name} className={`mt-0.5 text-[20px] ${ic.cls}`} />
+                      <span>
+                        <span className="block text-body-md font-medium text-on-surface">{fx.label}</span>
+                        <span className="block text-metadata-sm text-on-surface-variant">{fx.detail}</span>
+                      </span>
+                    </span>
+                    <span
+                      className={`shrink-0 rounded-full px-2.5 py-1 text-[12px] font-semibold tabular-nums ${
+                        fx.contribution > 0 ? "bg-error-container/60 text-on-error-container" : "bg-tertiary/15 text-tertiary"
+                      }`}
+                    >
+                      {fx.contribution > 0 ? `−${fx.contribution} pts` : "reassuring"}
+                    </span>
+                  </li>
+                );
+              })}
             </ul>
           </div>
 
-          <div className="mt-6 rounded-lg border border-primary-container/30 p-3.5">
-            <h4 className="mb-1.5 flex items-center gap-1.5 text-label-caps uppercase tracking-widest text-primary-container">
-              <Icon name="tips_and_updates" className="text-[16px]" />
-              Recommendation
-            </h4>
-            <p className="text-metadata-sm leading-relaxed text-inverse-on-surface/90">
-              Schedule a hive inspection within 24 hours to check for swarming preparation or queen health.
-            </p>
-          </div>
+          {weightVals.length >= 2 && (
+            <div className="mt-4">
+              <p className="mb-2 text-label-caps font-semibold uppercase tracking-wider text-on-surface-variant">
+                Weight trend (14 days)
+              </p>
+              <TrendChart labels={weightLabels} values={weightVals} tone={scoreTone(assessment.score) === "tertiary" ? "#3b6934" : "#b87a00"} />
+            </div>
+          )}
+          <ProtoNote />
+        </GlassCard>
+
+        <TrustLadder evidence={evidence} confidence={confidence} />
+      </div>
+
+      {/* Why + actions */}
+      <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <WhyPanel why={why} />
         </div>
+        <ActionList actions={actions} />
+      </div>
+
+      {/* AI advisor — LLM alert hypotheses + recommendations, lazy-loaded */}
+      <AiAdvisor hiveId={passport.id} />
+
+      {/* Passport */}
+      <div className="mb-6">
+        <HivePassportCard
+          passport={passport}
+          inspections={view.inspections}
+          healthEvents={view.healthEvents}
+          ambientNote={view.ambientNote}
+        />
+      </div>
+
+      {/* Interventions + traceability */}
+      <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <InterventionMemory hiveId={passport.id} seed={view.interventions} />
+        <TraceBridge hiveName={passport.name} trace={view.trace} />
+      </div>
+
+      {/* What-if */}
+      <div className="mb-6">
+        <WhatIfSimulator signals={signals} currentState={assessment.state} currentScore={assessment.score} />
       </div>
     </AppShell>
   );
 }
-
-const DEMO_BY_ID: Record<string, Parameters<typeof HiveDetailView>[0]["demo"]> = {
-  hive_a105: {
-    id: "hive_a105",
-    name: "Hive A-105",
-    type: "Langstroth",
-    status: "ACTIVE",
-    farm: "Purulia Apiary",
-    region: "Sector 4",
-    harvests: [
-      { date: new Date("2026-08-12T06:30:00"), quantity: 12, honeyType: "MUSTARD" },
-      { date: new Date("2026-07-28T07:00:00"), quantity: 11.2, honeyType: "MUSTARD" },
-      { date: new Date("2026-07-10T06:45:00"), quantity: 10.5, honeyType: "MUSTARD" },
-      { date: new Date("2026-06-24T07:15:00"), quantity: 13.1, honeyType: "MULTIFLORAL" },
-    ],
-  },
-};

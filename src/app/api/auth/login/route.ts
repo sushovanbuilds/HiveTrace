@@ -21,9 +21,14 @@ const DUMMY_DIGEST =
 // Hardcoded demo accounts — one per supply-chain node — guaranteed to sign in
 // even when the local database is empty or unreachable. Each mirrors a seeded
 // user (same id/email/org) so "login as the beekeeper / lab / processor"
-// produces a genuinely different experience without a DB. Demo/hackathon only
-// — remove before any real deployment; when the DB is available these same
-// accounts are also validated normally through the seed.
+// produces a genuinely different experience without a DB.
+//
+// Demo/hackathon only: the bypass below is inert unless HIVETRACE_DEMO_LOGIN
+// is explicitly set to "true". When the DB is available these same accounts
+// are also validated normally through the seed (scrypt-hashed passwords), so
+// the bypass is purely a no-database convenience — never enable it in
+// production.
+const DEMO_LOGIN_ENABLED = process.env.HIVETRACE_DEMO_LOGIN === "true";
 const DEMO_PASSWORD = "hivetrace-demo";
 const DEMO_ACCOUNTS = [
   { id: "usr_1", email: "ravi@greenvalley.in", name: "Ravi Kumar", role: "BEEKEEPER", organisationId: "org_1" },
@@ -61,10 +66,14 @@ export async function POST(request: NextRequest) {
   const { email, password } = parsed.data;
 
   // Demo bypass: same credential set every hackathon judge can use, no DB
-  // required. Falls through to the normal scrypt check when they don't match.
-  const demoAccount = DEMO_ACCOUNTS.find(
-    (a) => a.email === email && password === DEMO_PASSWORD,
-  );
+  // required. Active only when HIVETRACE_DEMO_LOGIN=true; otherwise every
+  // login goes through the scrypt check below. Falls through to the normal
+  // scrypt check when the credentials don't match.
+  const demoAccount = DEMO_LOGIN_ENABLED
+    ? DEMO_ACCOUNTS.find(
+        (a) => a.email === email && password === DEMO_PASSWORD,
+      )
+    : undefined;
   if (demoAccount) {
     const sessionUser = {
       id: demoAccount.id,

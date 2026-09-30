@@ -41,7 +41,7 @@ export const POST = route(async (request: NextRequest) => {
     return errorResponse(
       503,
       "AI_NOT_CONFIGURED",
-      "No model provider is configured. Set OPENAI_API_KEY (or GOOGLE_API_KEY with LLM_PROVIDER=gemini) and restart.",
+      "No model provider is configured. Set OPENAI_API_KEY (or GOOGLE_API_KEY with LLM_PROVIDER=gemini, or OLLAMA_BASE_URL with LLM_PROVIDER=ollama) and restart.",
     );
   }
 

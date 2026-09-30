@@ -1,17 +1,24 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { qrToSvg } from "@/lib/qr/svg";
 import { Icon } from "@/components/icons";
 
 export function DemoQrLabel({ code }: { code: string }) {
-  const [url, setUrl] = useState("");
+  // The verification URL needs window.location.origin, which only exists in
+  // the browser. Derive it during render (not in an effect) so the server
+  // prerender stays empty and hydration matches.
+  const [derived, setDerived] = useState<{ code: string; url: string } | null>(null);
+  if (derived?.code !== code) {
+    setDerived(
+      typeof window === "undefined"
+        ? null
+        : { code, url: `${window.location.origin}/verify/${encodeURIComponent(code)}` },
+    );
+  }
 
-  useEffect(() => {
-    setUrl(`${window.location.origin}/verify/${encodeURIComponent(code)}`);
-  }, [code]);
-
-  if (!url) return null;
+  if (!derived) return null;
+  const url = derived.url;
   const svg = qrToSvg(url, { pixelSize: 240, title: `Demo verification QR for ${code}` });
   const source = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 

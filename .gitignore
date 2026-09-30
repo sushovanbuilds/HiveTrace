@@ -61,3 +61,8 @@ ignition/deployments/
 /CLAUDE.md
 /DESIGN.md
 /IMPLEMENTATION_PLAN_HIVETRACE.md
+
+# Nested prototype app and design-export archives — not part of this project
+/hive-trace/
+/hive-trace.zip
+/stitch_hivetrace_premium_traceability_platform*.zip

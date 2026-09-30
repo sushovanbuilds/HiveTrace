@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { AppShell } from "@/components/app-shell";
 import { Icon } from "@/components/icons";
-import { Button, Pill, Card } from "@/components/ui";
+import { Button, Card } from "@/components/ui";
 import { BatchCard } from "@/components/demo/batch-card";
 import {
   DemoSection,
@@ -13,7 +13,6 @@ import {
 } from "@/components/demo/demo-ui";
 import { useDemoWorkspace } from "@/lib/demo/hooks";
 import { addHarvestBatch } from "@/lib/demo/data";
-import { formatQty } from "@/components/demo/format";
 import { generateBatchNumber } from "@/lib/batch-qr";
 import { BatchQrDownloader } from "@/components/batch-qr-downloader";
 

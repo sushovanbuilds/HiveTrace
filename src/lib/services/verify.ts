@@ -92,7 +92,18 @@ export async function verifyBatch(
     include: {
       organisation: { select: { name: true } },
       harvest: {
-        select: { date: true, hive: { select: { farm: { select: { region: true } } } } },
+        select: {
+          date: true,
+          quantity: true,
+          honeyType: true,
+          hive: {
+            select: {
+              id: true,
+              name: true,
+              farm: { select: { name: true, region: true } },
+            },
+          },
+        },
       },
       lineage: { select: { sourceBatchId: true } },
       childLineage: { select: { targetBatchId: true } },
@@ -139,6 +150,10 @@ export async function verifyBatch(
     riskState: batch.riskState as VerifyResult["riskState"],
     verificationState: batch.verificationState as VerifyResult["verificationState"],
     harvestDate: batch.harvest?.date ?? null,
+    // Consumer-safe origin: hive + apiary names only. No inspection,
+    // intervention, telemetry or actor detail ever leaves the server here.
+    hiveName: batch.harvest?.hive?.name ?? null,
+    apiaryName: batch.harvest?.hive?.farm?.name ?? null,
     originRegion: batch.originRegion,
     honeyType: batch.honeyType,
     quantity: batch.quantity,

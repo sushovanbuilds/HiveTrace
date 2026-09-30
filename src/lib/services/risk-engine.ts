@@ -183,18 +183,21 @@ export async function calculateRiskScore(batchId: string): Promise<RiskAssessmen
   const events = batch.events;
   let geoScore = 0;
 
-  // Events arrive ascending, so a *later* index holding an *earlier* timestamp
-  // is a genuine ordering violation.
-  const outOfOrder = events.filter(
-    (event, i) => i > 0 && event.timestamp.getTime() < events[i - 1].timestamp.getTime(),
+  // An event timestamped materially in the future is impossible: it indicates
+  // a fabricated backfill or a tampered clock. (The previous check looked for
+  // a later index holding an earlier timestamp inside an ascending-sorted
+  // list, which by construction could never find anything.)
+  const FUTURE_SKEW_MS = 5 * 60 * 1000;
+  const futureDated = events.filter(
+    (event) => event.timestamp.getTime() > Date.now() + FUTURE_SKEW_MS,
   );
-  if (outOfOrder.length > 0) {
-    geoScore += Math.min(70, outOfOrder.length * 35);
+  if (futureDated.length > 0) {
+    geoScore += Math.min(70, futureDated.length * 35);
     add({
       rule: "TIMELINE_ANOMALY",
-      description: `${outOfOrder.length} event(s) are timestamped before the event preceding them`,
+      description: `${futureDated.length} event(s) are timestamped in the future: ${futureDated.map((event) => event.type).join(", ")}`,
       severity: "HIGH",
-      score: Math.min(70, outOfOrder.length * 35),
+      score: Math.min(70, futureDated.length * 35),
     }, WEIGHTS.geoTemporalRisk);
   }
 
@@ -303,12 +306,22 @@ const STAGE_ORDER = [
   "HARVEST", "COLLECTION", "LAB", "PROCESSING", "PACKAGING", "DISTRIBUTION", "RETAIL",
 ] as const;
 
-/** Events a batch should have accumulated by the time it reaches a given stage. */
+/** Events a batch should have accumulated by the time it reaches a given stage.
+ *
+ * Only event types the API actually emits are expected here. CUSTODY_TRANSFER
+ * is recorded in the CustodyTransfer table rather than the event log (and is
+ * covered by the CUSTODY_GAP rules above), and LAB_RESULT is never written —
+ * quality tests emit QUALITY_TEST. Expecting either would permanently penalise
+ * every batch for events no code path can produce. */
 function expectedEventsFor(stage: string): string[] {
   const index = STAGE_ORDER.indexOf(stage as (typeof STAGE_ORDER)[number]);
   const expected = ["HARVEST"];
-  if (index >= STAGE_ORDER.indexOf("COLLECTION")) expected.push("CUSTODY_TRANSFER");
-  if (index >= STAGE_ORDER.indexOf("PROCESSING")) expected.push("QUALITY_TEST", "LAB_RESULT");
+  if (index >= STAGE_ORDER.indexOf("COLLECTION")) expected.push("COLLECTION");
+  if (index >= STAGE_ORDER.indexOf("LAB")) expected.push("QUALITY_TEST");
+  if (index >= STAGE_ORDER.indexOf("PROCESSING")) expected.push("PROCESSING");
+  if (index >= STAGE_ORDER.indexOf("PACKAGING")) expected.push("PACKAGING");
+  if (index >= STAGE_ORDER.indexOf("DISTRIBUTION")) expected.push("SHIPMENT");
+  if (index >= STAGE_ORDER.indexOf("RETAIL")) expected.push("RETAIL_LISTING");
   return expected;
 }
 

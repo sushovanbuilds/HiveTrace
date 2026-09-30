@@ -5,6 +5,8 @@ import { CopyField } from "@/components/copy-field";
 import { db } from "@/lib/db";
 import { qrToSvg } from "@/lib/qr/svg";
 import { STAGE_ORDER, type BatchStage } from "@/lib/types";
+import { TraceChainStrip, ChainLink } from "@/components/trace/journey";
+import { buildJourneyStages } from "@/lib/trace/chain";
 
 export const dynamic = "force-dynamic";
 
@@ -226,7 +228,26 @@ async function loadBatch(id: string) {
       where: { id },
       include: {
         organisation: { select: { name: true, type: true } },
-        harvest: { select: { date: true, hive: { select: { name: true, farm: { select: { name: true, region: true } } } } } },
+        harvest: {
+          select: {
+            id: true,
+            date: true,
+            quantity: true,
+            honeyType: true,
+            hive: {
+              select: {
+                id: true,
+                name: true,
+                farm: { select: { name: true, region: true } },
+                // Hive history: every harvest this hive produced, newest first.
+                harvests: {
+                  orderBy: { date: "desc" },
+                  select: { id: true, date: true, quantity: true, honeyType: true },
+                },
+              },
+            },
+          },
+        },
         events: { orderBy: { timestamp: "asc" } },
         qualityTests: { orderBy: { testedAt: "asc" } },
       },
@@ -235,6 +256,19 @@ async function loadBatch(id: string) {
   } catch {
     return null;
   }
+}
+
+export interface BatchOriginInfo {
+  /** Null for legacy demo batches that have no harvest record. */
+  harvestId: string | null;
+  harvestDate: Date;
+  harvestQuantity: number;
+  harvestHoneyType: string;
+  hiveId: string | null;
+  hiveName: string | null;
+  farmName: string | null;
+  region: string | null;
+  hiveHarvests: Array<{ id: string; date: Date; quantity: number; honeyType: string }>;
 }
 
 export default async function BatchDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -247,16 +281,33 @@ export default async function BatchDetailPage({ params }: { params: Promise<{ id
     return <BatchDetailView id={id} />;
   }
 
-  const stageIndex = STAGE_ORDER.indexOf(batch.currentStage as BatchStage);
   const events = batch.events.map((e) => ({ id: e.id, type: e.type, timestamp: e.timestamp, data: (e.data ?? {}) as Record<string, unknown> }));
+
+  const harvest = batch.harvest;
+  const origin: BatchOriginInfo | null = harvest
+    ? {
+        harvestId: harvest.id,
+        harvestDate: harvest.date,
+        harvestQuantity: harvest.quantity,
+        harvestHoneyType: harvest.honeyType,
+        hiveId: harvest.hive?.id ?? null,
+        hiveName: harvest.hive?.name ?? null,
+        farmName: harvest.hive?.farm?.name ?? null,
+        region: harvest.hive?.farm?.region ?? null,
+        hiveHarvests: (harvest.hive?.harvests ?? []).map((h) => ({
+          id: h.id,
+          date: h.date,
+          quantity: h.quantity,
+          honeyType: h.honeyType,
+        })),
+      }
+    : null;
 
   return (
     <AppShell>
       <BatchDetailInner
         publicCode={batch.publicCode}
         honeyType={batch.honeyType}
-        originRegion={batch.originRegion}
-        organisation={batch.organisation?.name ?? "Unknown"}
         quantity={batch.quantity}
         currentStage={batch.currentStage}
         events={events}
@@ -267,6 +318,7 @@ export default async function BatchDetailPage({ params }: { params: Promise<{ id
           passed: t.passed,
           labName: t.labName,
         }))}
+        origin={origin}
       />
     </AppShell>
   );
@@ -274,17 +326,31 @@ export default async function BatchDetailPage({ params }: { params: Promise<{ id
 
 async function BatchDetailView({ id }: { id: string }) {
   const demo = DEMO_BY_ID[id] ?? DEMO;
+  const harvestEv = demo.events.find((e) => e.type === "HARVEST");
+  const origin: BatchOriginInfo | null = harvestEv
+    ? {
+        harvestId: null,
+        harvestDate: harvestEv.timestamp,
+        harvestQuantity:
+          typeof harvestEv.data.quantity === "number" ? harvestEv.data.quantity : demo.quantity,
+        harvestHoneyType: demo.honeyType,
+        hiveId: demo.hiveId ?? null,
+        hiveName: typeof harvestEv.data.hive === "string" ? harvestEv.data.hive : null,
+        farmName: typeof harvestEv.data.location === "string" ? harvestEv.data.location : null,
+        region: null,
+        hiveHarvests: [],
+      }
+    : null;
   return (
     <AppShell>
       <BatchDetailInner
         publicCode={demo.publicCode}
         honeyType={demo.honeyType}
-        originRegion={demo.originRegion}
-        organisation={demo.organisation}
         quantity={demo.quantity}
         currentStage={demo.currentStage}
         events={demo.events}
         qualityTests={demo.qualityTests}
+        origin={origin}
       />
     </AppShell>
   );
@@ -293,29 +359,25 @@ async function BatchDetailView({ id }: { id: string }) {
 function BatchDetailInner({
   publicCode,
   honeyType,
-  originRegion,
-  organisation,
   quantity,
   currentStage,
   events,
   qualityTests,
+  origin,
 }: {
   publicCode: string;
   honeyType: string;
-  originRegion: string;
-  organisation: string;
   quantity: number;
   currentStage: string;
   events: Array<{ id: string; type: string; timestamp: Date; data: Record<string, unknown> }>;
   qualityTests: Array<{ testType: string; result: number; unit: string; passed: boolean; labName: string | null }>;
+  origin?: BatchOriginInfo | null;
 }) {
   const stageIndex = STAGE_ORDER.indexOf(currentStage as BatchStage);
   const honeyName = honeyTitle(honeyType);
-  const labName = qualityTests.find((t) => t.labName)?.labName ?? "National Bee Board Lab";
 
   const stagesDone = STAGE_ORDER.slice(0, stageIndex + 1);
   const stagesPending = STAGE_ORDER.slice(stageIndex + 1);
-  const stageByType = new Map(events.map((e) => [e.type, e]));
 
   return (
     <>
@@ -348,7 +410,7 @@ function BatchDetailInner({
       <div className="grid grid-cols-12 gap-6">
         {/* Timeline */}
         <div className="col-span-12 lg:col-span-8 lg:pr-8">
-          <h3 className="mb-8 flex items-center gap-3 font-headline-md text-headline-md text-surface-tint">
+          <h3 id="provenance" className="mb-8 flex items-center gap-3 font-headline-md text-headline-md text-surface-tint scroll-mt-6">
             <Icon name="route" />
             Provenance Journey
           </h3>
@@ -387,6 +449,9 @@ function BatchDetailInner({
         {/* Sidebar */}
         <div className="col-span-12 lg:col-span-4">
           <aside className="lg:sticky lg:top-6 space-y-4">
+            {origin ? (
+              <OriginCard publicCode={publicCode} currentStage={currentStage} events={events} origin={origin} />
+            ) : null}
             <div className="overflow-hidden rounded-2xl border border-outline-variant/30 bg-surface-container-lowest/90 shadow-[0_12px_40px_rgba(0,0,0,0.06)] backdrop-blur-2xl">
               {/* Hero area */}
               <div className="relative h-56 w-full overflow-hidden border-b border-outline-variant/20 bg-[radial-gradient(circle_at_30%_20%,#fff3cf_0%,#f6e09a_50%,#e9c476_100%)]">
@@ -465,6 +530,119 @@ function BatchDetailInner({
         </div>
       </div>
     </>
+  );
+}
+
+/**
+ * Origin card — links the batch back to its harvest and hive, and exposes the
+ * hive's harvest history. This is the batch → harvest → hive direction of the
+ * canonical chain.
+ */
+function OriginCard({
+  publicCode,
+  currentStage,
+  events,
+  origin,
+}: {
+  publicCode: string;
+  currentStage: string;
+  events: Array<{ type: string; timestamp: Date }>;
+  origin: BatchOriginInfo;
+}) {
+  const stages = buildJourneyStages({
+    events,
+    currentStage,
+    hasHive: origin.hiveId !== null || origin.hiveName !== null,
+    hasHarvest: true,
+    hasBatch: true,
+    harvestDate: origin.harvestDate.toISOString(),
+    notes: {
+      HIVE: origin.hiveName
+        ? `${origin.hiveName}${origin.farmName ? ` · ${origin.farmName}` : ""}`
+        : null,
+      HARVEST: `${origin.harvestQuantity} kg · ${origin.harvestHoneyType.replace(/_/g, " ")}`,
+      BATCH: `#${publicCode}`,
+    },
+    hrefs: {
+      HIVE: origin.hiveId ? `/hives/${origin.hiveId}` : null,
+      HARVEST: origin.harvestId ? `/harvests/${origin.harvestId}` : null,
+      CONSUMER_QR: `/verify/${encodeURIComponent(publicCode)}`,
+    },
+  });
+
+  const otherHarvests = origin.hiveHarvests.filter((h) => h.id !== origin.harvestId);
+  const shownHarvests = [origin.harvestId ? origin.hiveHarvests.find((h) => h.id === origin.harvestId) : null, ...otherHarvests]
+    .filter((h): h is NonNullable<typeof h> => h != null)
+    .slice(0, 4);
+
+  return (
+    <div className="overflow-hidden rounded-2xl border border-outline-variant/30 bg-surface-container-lowest/90 shadow-[0_12px_40px_rgba(0,0,0,0.06)] backdrop-blur-2xl">
+      <div className="p-6">
+        <h4 className="mb-1 flex items-center gap-2 font-label-caps uppercase tracking-[0.1em] text-secondary">
+          <Icon name="hive" className="text-[18px]" />
+          Origin — hive &amp; harvest
+        </h4>
+        <p className="mb-4 text-metadata-sm text-on-surface-variant">
+          {origin.hiveName ? (
+            <>
+              Harvested from <span className="font-medium text-on-surface">{origin.hiveName}</span>
+              {origin.farmName ? ` at ${origin.farmName}` : ""}
+              {origin.region ? ` (${origin.region})` : ""} on {fmtDate(origin.harvestDate)}.
+            </>
+          ) : (
+            <>Harvested on {fmtDate(origin.harvestDate)} — originating hive not recorded.</>
+          )}
+        </p>
+
+        <TraceChainStrip stages={stages} className="mb-4" />
+
+        <div className="flex flex-wrap gap-2">
+          {origin.hiveId ? (
+            <ChainLink href={`/hives/${origin.hiveId}`} icon="hive" variant="filled">
+              View Hive Passport
+            </ChainLink>
+          ) : null}
+          {origin.harvestId ? (
+            <ChainLink href={`/harvests/${origin.harvestId}`} icon="agriculture">
+              View Harvest
+            </ChainLink>
+          ) : null}
+          <ChainLink href="#provenance" icon="route">
+            View Traceability
+          </ChainLink>
+          <ChainLink href={`/verify/${encodeURIComponent(publicCode)}`} icon="qr_code_2">
+            Verify QR
+          </ChainLink>
+        </div>
+
+        {origin.hiveName && origin.hiveHarvests.length > 0 ? (
+          <div className="mt-5 border-t border-outline-variant/20 pt-4">
+            <p className="mb-2 text-label-caps uppercase tracking-widest text-secondary">
+              Hive history — {origin.hiveHarvests.length} harvest{origin.hiveHarvests.length === 1 ? "" : "s"} from{" "}
+              {origin.hiveName}
+            </p>
+            <ul className="space-y-1.5">
+              {shownHarvests.map((h) => (
+                <li key={h.id}>
+                  <a
+                    href={`/harvests/${h.id}`}
+                    className={`flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-metadata-sm transition-colors hover:bg-surface-container ${
+                      h.id === origin.harvestId ? "bg-primary-container/20 font-medium text-on-surface" : "text-on-surface-variant"
+                    }`}
+                  >
+                    <span>
+                      {fmtDate(h.date)} · {h.quantity} kg · {h.honeyType.replace(/_/g, " ")}
+                      {h.id === origin.harvestId ? " · this batch" : ""}
+                    </span>
+                    <Icon name="chevron_right" className="text-[16px]" />
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+      </div>
+    </div>
   );
 }
 
@@ -548,6 +726,8 @@ const DEMO: {
   organisation: string;
   quantity: number;
   currentStage: string;
+  /** HiveOS hive id when this demo batch's harvest names a known demo hive. */
+  hiveId?: string;
   events: Array<{ id: string; type: string; timestamp: Date; data: Record<string, unknown> }>;
   qualityTests: Array<{ testType: string; result: number; unit: string; passed: boolean; labName: string | null }>;
 } = {
@@ -557,6 +737,7 @@ const DEMO: {
   organisation: "Rana Beekeeping FPO",
   quantity: 1240,
   currentStage: "PROCESSING",
+  hiveId: "hive_a105",
   events: [
     EventRec("HARVEST", new Date("2026-08-12T06:30:00"), { quantity: 1240, hive: "Hive A-105", location: "Purulia Apiary, Sector 4" }),
     EventRec("COLLECTION", new Date("2026-08-13T09:15:00"), { facility: "West Bengal Hub", location: "Purulia Collection Centre" }),

@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
+import { Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import { PaginationSchema, limit, pageArgs, readJson, readQuery, route } from "@/lib/api/handler";
 import { requireCapability } from "@/lib/auth/guard";
@@ -64,6 +65,12 @@ const CreateSchema = z.object({
   description: z.string().trim().max(5_000).optional(),
   severity: z.enum(SEVERITIES),
   alertIds: z.array(z.string().trim().min(1).max(64)).max(500).optional(),
+  /**
+   * Clustering pattern (common factors, root context, proposed-by) carried
+   * over from GET /api/incidents/clusters, so the created case keeps the
+   * rationale for why these alerts belong together.
+   */
+  pattern: z.unknown().optional(),
 });
 
 export const POST = route(async (request: NextRequest) => {
@@ -88,6 +95,9 @@ export const POST = route(async (request: NextRequest) => {
         severity: body.data.severity,
         status: "OPEN",
         batchCount: 0,
+        // The clustering proposal that justified grouping these alerts, if the
+        // caller carried one over. Stored as JSON, never trusted for logic.
+        pattern: (body.data.pattern ?? undefined) as Prisma.InputJsonValue | undefined,
       },
     });
 
