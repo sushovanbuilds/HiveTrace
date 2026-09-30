@@ -244,11 +244,17 @@ export function createChatModel(options: ChatModelOptions = {}): BaseChatModel |
   if (!apiKey) {
     throw new Error("OPENAI_API_KEY is required for the openai provider");
   }
+  // OPENAI_BASE_URL lets the "openai" provider also target any OpenAI-compatible
+  // gateway (OpenRouter, Together, a local vLLM) without a new code path.
+  const baseURL = process.env.OPENAI_BASE_URL?.trim();
   return new ChatOpenAI({
     apiKey,
     model: options.model ?? process.env.OPENAI_MODEL ?? "gpt-4o",
     temperature,
     maxTokens,
+    // Omitted entirely when unset, so the real OpenAI default applies rather
+    // than an empty-string base URL.
+    ...(baseURL ? { configuration: { baseURL } } : {}),
   });
 }
 
